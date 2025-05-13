@@ -5,20 +5,41 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, UploadCloud, FileUp, CheckCircle } from "lucide-react";
-import { Input } from "@/components/ui/input"; // Input will be used for file input
+import { ArrowLeft, UploadCloud, FileUp, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
+import { auth } from "@/lib/firebase/config"; // Firebase client auth
+import type { User } from "firebase/auth";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
+
 
 export default function UploadDocumentPage() {
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [fileName, setFileName] = React.useState<string | null>(null);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState(0); // Can be used if backend provides progress
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = React.useState<string | null>(null);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setSelectedFile(file);
       setFileName(file.name);
+      setUploadError(null);
+      setUploadSuccess(null);
+      setUploadProgress(0);
       toast({
         title: "File Selected",
         description: `${file.name} is ready to be uploaded.`,
@@ -30,27 +51,101 @@ export default function UploadDocumentPage() {
   };
 
   const handleBrowseClick = () => {
+    if (isUploading) return;
     fileInputRef.current?.click();
   };
 
-  const handleUpload = () => {
-    if (selectedFile) {
-      // Placeholder for actual upload logic
-      toast({
-        title: "Upload Initiated (Placeholder)",
-        description: `Uploading ${selectedFile.name}... This is a placeholder and no actual upload will occur.`,
-      });
-      // Reset after "upload"
-      // setSelectedFile(null);
-      // setFileName(null);
-    } else {
+  const handleUpload = async () => {
+    if (!selectedFile) {
       toast({
         title: "No File Selected",
         description: "Please select a file to upload.",
         variant: "destructive",
       });
+      return;
+    }
+
+    if (!currentUser) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be logged in to upload files.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadSuccess(null);
+    setUploadProgress(0); // Reset progress
+
+    try {
+      const idToken = await currentUser.getIdToken(true);
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      // Simulate progress for demo purposes if backend doesn't stream progress
+      // In a real scenario, you'd use XMLHttpRequest for progress or server-sent events
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += 10;
+        if (progress <= 90) { // Don't complete with this simulation
+             setUploadProgress(progress);
+        } else {
+            clearInterval(progressInterval)
+        }
+      }, 200);
+
+
+      const response = await fetch("/api/upload-document", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: formData,
+      });
+
+      clearInterval(progressInterval); // Stop simulation
+      setUploadProgress(100); // Mark as complete
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Upload failed with status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setUploadSuccess(`File "${selectedFile.name}" uploaded successfully! File ID: ${result.fileId}`);
+      toast({
+        title: "Upload Successful",
+        description: `${selectedFile.name} has been uploaded.`,
+      });
+      // Optionally reset file input
+      // setSelectedFile(null);
+      // setFileName(null);
+      // if (fileInputRef.current) fileInputRef.current.value = "";
+
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      setUploadError(error.message || "An unexpected error occurred during upload.");
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Could not upload file.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      // setUploadProgress(0); // Reset progress if you want it to disappear after completion/error
     }
   };
+
+  const clearSelection = () => {
+    setSelectedFile(null);
+    setFileName(null);
+    setUploadError(null);
+    setUploadSuccess(null);
+    setUploadProgress(0);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   return (
     <div className="space-y-6">
@@ -70,19 +165,27 @@ export default function UploadDocumentPage() {
           <CardTitle>Document Upload Center</CardTitle>
           <CardDescription>
             Use this section to upload various documents required for college processes.
+            Ensure you are logged in.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div 
-            className="flex flex-col items-center justify-center p-10 border-2 border-dashed border-muted rounded-lg cursor-pointer hover:border-primary transition-colors"
+          <div
+            className={cn(
+              "flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-lg transition-colors",
+              !isUploading && "cursor-pointer hover:border-primary border-muted",
+              isUploading && "border-muted cursor-not-allowed opacity-70"
+            )}
             onClick={handleBrowseClick}
-            onDragOver={(e) => e.preventDefault()} // Basic drag over prevention
-            onDrop={(e) => { // Basic drop handling
+            onDragOver={(e) => { if (!isUploading) e.preventDefault();}}
+            onDrop={(e) => {
+              if (isUploading) return;
               e.preventDefault();
               const file = e.dataTransfer.files?.[0];
               if (file) {
                 setSelectedFile(file);
                 setFileName(file.name);
+                setUploadError(null);
+                setUploadSuccess(null);
                 toast({
                   title: "File Dropped",
                   description: `${file.name} is ready to be uploaded.`,
@@ -92,15 +195,19 @@ export default function UploadDocumentPage() {
           >
             <UploadCloud className="h-16 w-16 text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-2 text-center">
-              Drag and drop files here or click to browse.
+              {isUploading ? "Uploading..." : "Drag and drop files here or click to browse."}
             </p>
-            <Button variant="outline" onClick={(e) => {e.stopPropagation(); handleBrowseClick();}}>Browse File</Button>
+            <Button variant="outline" onClick={(e) => {e.stopPropagation(); handleBrowseClick();}} disabled={isUploading}>
+              {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Browse File
+            </Button>
             <Input
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
               className="hidden"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" 
+              disabled={isUploading}
             />
           </div>
 
@@ -110,16 +217,41 @@ export default function UploadDocumentPage() {
                 <CheckCircle className="h-5 w-5 text-green-500" />
                 <p className="text-sm font-medium text-foreground">Selected: {fileName}</p>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => { setSelectedFile(null); setFileName(null); if(fileInputRef.current) fileInputRef.current.value = ""; }}>
+              <Button variant="ghost" size="sm" onClick={clearSelection} disabled={isUploading}>
                 Clear
               </Button>
             </div>
           )}
+
+          {isUploading && (
+            <div className="space-y-2">
+              <Progress value={uploadProgress} className="w-full" />
+              <p className="text-sm text-muted-foreground text-center">{uploadProgress}% uploaded</p>
+            </div>
+          )}
+
+          {uploadSuccess && (
+            <div className="p-3 border rounded-md bg-green-50 border-green-200 text-green-700 flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              <p className="text-sm">{uploadSuccess}</p>
+            </div>
+          )}
+
+          {uploadError && (
+            <div className="p-3 border rounded-md bg-red-50 border-red-200 text-red-700 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              <p className="text-sm">{uploadError}</p>
+            </div>
+          )}
           
           <div className="mt-4 flex justify-end">
-            <Button onClick={handleUpload} disabled={!selectedFile}>
-              <FileUp className="mr-2 h-4 w-4" />
-              Upload Selected File (Coming Soon)
+            <Button onClick={handleUpload} disabled={!selectedFile || isUploading || !currentUser}>
+              {isUploading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileUp className="mr-2 h-4 w-4" />
+              )}
+              {isUploading ? 'Uploading...' : 'Upload Selected File'}
             </Button>
           </div>
 
@@ -127,10 +259,8 @@ export default function UploadDocumentPage() {
             <h3 className="font-semibold mt-6 mb-2">Supported Formats & Guidelines:</h3>
             <ul className="list-disc list-inside text-muted-foreground mt-2 space-y-1 text-sm">
               <li>Supported file types: PDF, DOC, DOCX, JPG, JPEG, PNG.</li>
-              <li>Maximum file size: 5MB (example limit).</li>
+              <li>Maximum file size: 5MB (example limit, actual limit may vary).</li>
               <li>Ensure documents are legible and complete.</li>
-              <li>Categorization of uploaded documents will be available soon.</li>
-              <li>Linking documents to student profiles or specific forms will be implemented later.</li>
             </ul>
           </div>
         </CardContent>
