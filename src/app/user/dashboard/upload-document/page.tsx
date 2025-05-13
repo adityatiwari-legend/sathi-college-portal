@@ -8,8 +8,8 @@ import Link from "next/link";
 import { ArrowLeft, UploadCloud, FileUp, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase/config"; 
-import type { User } from "firebase/auth";
+// import { auth } from "@/lib/firebase/config"; // Firebase auth import removed
+// import type { User } from "firebase/auth"; // User type import removed
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
@@ -21,25 +21,23 @@ export default function UserUploadDocumentPage() {
   const [uploadProgress, setUploadProgress] = React.useState(0);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = React.useState<string | null>(null);
-  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+  // const [currentUser, setCurrentUser] = React.useState<User | null>(null); // currentUser state removed
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setCurrentUser(user);
-      if (!user) {
-        toast({
-            title: "Not Logged In",
-            description: "Please log in to upload documents.",
-            variant: "destructive",
-        });
-        // Optionally redirect to login if not authenticated
-        // router.push('/login'); 
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  // React.useEffect(() => { // Firebase auth listener removed
+  //   const unsubscribe = auth.onAuthStateChanged((user) => {
+  //     setCurrentUser(user);
+  //     if (!user) {
+  //       toast({
+  //           title: "Not Logged In",
+  //           description: "Please log in to upload documents.",
+  //           variant: "destructive",
+  //       });
+  //     }
+  //   });
+  //   return () => unsubscribe();
+  // }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -74,14 +72,14 @@ export default function UserUploadDocumentPage() {
       return;
     }
 
-    if (!currentUser) {
-      toast({
-        title: "Authentication Error",
-        description: "You must be logged in to upload files.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // if (!currentUser) { // currentUser check removed
+    //   toast({
+    //     title: "Authentication Error",
+    //     description: "You must be logged in to upload files.",
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
 
     setIsUploading(true);
     setUploadError(null);
@@ -89,7 +87,7 @@ export default function UserUploadDocumentPage() {
     setUploadProgress(0); 
 
     try {
-      const idToken = await currentUser.getIdToken(true);
+      // const idToken = await currentUser.getIdToken(true); // idToken retrieval removed
       const formData = new FormData();
       formData.append("file", selectedFile);
 
@@ -106,9 +104,9 @@ export default function UserUploadDocumentPage() {
 
       const response = await fetch("/api/upload-document", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
+        // headers: { // Authorization header removed
+        //   Authorization: `Bearer ${idToken}`,
+        // },
         body: formData,
       });
 
@@ -126,16 +124,20 @@ export default function UserUploadDocumentPage() {
         title: "Upload Successful",
         description: `${selectedFile.name} has been uploaded.`,
       });
-      // Optionally reset after successful upload
-      // setSelectedFile(null);
-      // setFileName(null);
-      // if(fileInputRef.current) fileInputRef.current.value = "";
     } catch (error: any) {
       console.error("Upload error:", error);
-      setUploadError(error.message || "An unexpected error occurred during upload.");
+      let errorMessage = "An unexpected error occurred during upload.";
+      if (error.message) {
+        errorMessage = error.message;
+      }
+       // Add specific message if it's likely an auth issue due to backend expecting token
+      if (error.message && error.message.toLowerCase().includes("unauthorized") || (error instanceof Error && error.message.includes("401"))){
+        errorMessage = "Upload failed. The server requires authentication which is currently not configured on the client.";
+      }
+      setUploadError(errorMessage);
       toast({
         title: "Upload Failed",
-        description: error.message || "Could not upload file.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -169,7 +171,7 @@ export default function UserUploadDocumentPage() {
         <CardHeader>
           <CardTitle>Document Upload</CardTitle>
           <CardDescription>
-            Upload your documents here. Ensure you are logged in.
+            Upload your documents here.
             Supported formats: PDF, DOC, DOCX, JPG, PNG. Max 5MB.
           </CardDescription>
         </CardHeader>
@@ -181,9 +183,9 @@ export default function UserUploadDocumentPage() {
               isUploading && "border-muted cursor-not-allowed opacity-70"
             )}
             onClick={handleBrowseClick}
-            onDragOver={(e) => { if (!isUploading && currentUser) e.preventDefault();}} // Allow drag only if logged in
+            onDragOver={(e) => { if (!isUploading) e.preventDefault();}} 
             onDrop={(e) => {
-              if (isUploading || !currentUser) return; // Prevent drop if uploading or not logged in
+              if (isUploading) return; 
               e.preventDefault();
               const file = e.dataTransfer.files?.[0];
               if (file) {
@@ -200,9 +202,9 @@ export default function UserUploadDocumentPage() {
           >
             <UploadCloud className="h-16 w-16 text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-2 text-center">
-              {isUploading ? "Uploading..." : (currentUser ? "Drag and drop files here or click to browse." : "Please log in to enable uploads.")}
+              {isUploading ? "Uploading..." : "Drag and drop files here or click to browse."}
             </p>
-            <Button variant="outline" onClick={(e) => {e.stopPropagation(); handleBrowseClick();}} disabled={isUploading || !currentUser}>
+            <Button variant="outline" onClick={(e) => {e.stopPropagation(); handleBrowseClick();}} disabled={isUploading}>
               {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Browse File
             </Button>
@@ -212,7 +214,7 @@ export default function UserUploadDocumentPage() {
               onChange={handleFileChange}
               className="hidden"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" 
-              disabled={isUploading || !currentUser}
+              disabled={isUploading}
             />
           </div>
 
@@ -250,7 +252,7 @@ export default function UserUploadDocumentPage() {
           )}
           
           <div className="mt-4 flex justify-end">
-            <Button onClick={handleUpload} disabled={!selectedFile || isUploading || !currentUser}>
+            <Button onClick={handleUpload} disabled={!selectedFile || isUploading}>
               {isUploading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

@@ -8,29 +8,29 @@ import Link from "next/link";
 import { ArrowLeft, UploadCloud, FileUp, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase/config"; 
-import type { User } from "firebase/auth";
+// import { auth } from "@/lib/firebase/config"; // Firebase auth import removed
+// import type { User } from "firebase/auth"; // User type import removed
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 
-export default function AdminUploadDocumentPage() { // Renamed component
+export default function AdminUploadDocumentPage() { 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState(0);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = React.useState<string | null>(null);
-  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+  // const [currentUser, setCurrentUser] = React.useState<User | null>(null); // currentUser state removed
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setCurrentUser(user);
-    });
-    return () => unsubscribe();
-  }, []);
+  // React.useEffect(() => { // Firebase auth listener removed
+  //   const unsubscribe = auth.onAuthStateChanged((user) => {
+  //     setCurrentUser(user);
+  //   });
+  //   return () => unsubscribe();
+  // }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -65,14 +65,14 @@ export default function AdminUploadDocumentPage() { // Renamed component
       return;
     }
 
-    if (!currentUser) {
-      toast({
-        title: "Authentication Error",
-        description: "You must be logged in to upload files.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // if (!currentUser) { // currentUser check removed
+    //   toast({
+    //     title: "Authentication Error",
+    //     description: "You must be logged in to upload files.",
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
 
     setIsUploading(true);
     setUploadError(null);
@@ -80,7 +80,7 @@ export default function AdminUploadDocumentPage() { // Renamed component
     setUploadProgress(0); 
 
     try {
-      const idToken = await currentUser.getIdToken(true);
+      // const idToken = await currentUser.getIdToken(true); // idToken retrieval removed
       const formData = new FormData();
       formData.append("file", selectedFile);
 
@@ -97,9 +97,9 @@ export default function AdminUploadDocumentPage() { // Renamed component
 
       const response = await fetch("/api/upload-document", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
+        // headers: { // Authorization header removed
+        //   Authorization: `Bearer ${idToken}`,
+        // },
         body: formData,
       });
 
@@ -119,10 +119,19 @@ export default function AdminUploadDocumentPage() { // Renamed component
       });
     } catch (error: any) {
       console.error("Upload error:", error);
-      setUploadError(error.message || "An unexpected error occurred during upload.");
+      let errorMessage = "An unexpected error occurred during upload.";
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      // Add specific message if it's likely an auth issue due to backend expecting token
+      if (error.message && error.message.toLowerCase().includes("unauthorized") || (error instanceof Error && error.message.includes("401"))){
+        errorMessage = "Upload failed. The server requires authentication which is currently not configured on the client.";
+      }
+
+      setUploadError(errorMessage);
       toast({
         title: "Upload Failed",
-        description: error.message || "Could not upload file.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -144,7 +153,7 @@ export default function AdminUploadDocumentPage() { // Renamed component
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
-            <Link href="/admin/dashboard"> {/* Updated back link */}
+            <Link href="/admin/dashboard">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -156,7 +165,7 @@ export default function AdminUploadDocumentPage() { // Renamed component
         <CardHeader>
           <CardTitle>Document Upload Center</CardTitle>
           <CardDescription>
-            Use this section to upload various documents. Ensure you are logged in.
+            Use this section to upload various documents.
             Admins can manage all uploaded documents.
           </CardDescription>
         </CardHeader>
@@ -237,7 +246,7 @@ export default function AdminUploadDocumentPage() { // Renamed component
           )}
           
           <div className="mt-4 flex justify-end">
-            <Button onClick={handleUpload} disabled={!selectedFile || isUploading || !currentUser}>
+            <Button onClick={handleUpload} disabled={!selectedFile || isUploading}>
               {isUploading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

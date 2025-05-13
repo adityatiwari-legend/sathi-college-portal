@@ -20,20 +20,15 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  // SidebarMenuSub, // Not used for now, can be added if submenus are needed
-  // SidebarMenuSubItem,
-  // SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-// import { cn } from "@/lib/utils"; // cn might not be needed here
 
 interface NavItemProps {
   href: string;
   icon: ReactNode;
   label: string;
   tooltip: string;
-  // subItems?: NavItemProps[]; // SubItems can be added later if needed
 }
 
 const NavItem = ({ href, icon, label, tooltip }: NavItemProps) => {
@@ -56,16 +51,16 @@ const NavItem = ({ href, icon, label, tooltip }: NavItemProps) => {
 const navItems: NavItemProps[] = [
   { href: "/user/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "User Dashboard" },
   { href: "/user/dashboard/upload-document", icon: <UploadCloud />, label: "Upload Document", tooltip: "Upload Your Documents" },
-  { href: "/user/dashboard/my-profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile (Coming Soon)" }, // Placeholder
-  { href: "/user/dashboard/my-forms", icon: <FileText />, label: "My Forms", tooltip: "View Your Submitted Forms (Coming Soon)" }, // Placeholder
+  { href: "/user/dashboard/my-profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile (Coming Soon)" }, 
+  { href: "/user/dashboard/my-forms", icon: <FileText />, label: "My Forms", tooltip: "View Your Submitted Forms (Coming Soon)" }, 
 ];
 
 export function UserDashboardSidebarContent() {
-  // Example user data, in a real app this would come from auth context or state
-  const userName = auth.currentUser?.displayName || auth.currentUser?.email || "User";
-  const userEmail = auth.currentUser?.email || "user@example.com";
-  const userAvatar = auth.currentUser?.photoURL || "https://picsum.photos/id/338/200/200"; // Different avatar for user
-  const avatarFallback = userName.substring(0, 2).toUpperCase();
+  // Placeholder user data as Firebase auth is removed from login
+  const userName = "User";
+  const userEmail = "user@example.com";
+  const userAvatar = "https://picsum.photos/id/338/200/200"; 
+  const avatarFallback = "US";
 
 
   return (
@@ -81,7 +76,6 @@ export function UserDashboardSidebarContent() {
       <SidebarContent className="flex-grow">
         <SidebarMenu>
           {navItems.map((item) => {
-            // Disable placeholder links for now
             const isComingSoon = item.href.includes("my-profile") || item.href.includes("my-forms");
             if (isComingSoon) {
               return (
@@ -112,6 +106,7 @@ export function UserDashboardSidebarContent() {
             </span>
           </div>
           <Button variant="ghost" size="icon" className="ml-auto text-sidebar-foreground/70 hover:text-sidebar-foreground" asChild>
+            {/* LogOut still points to /login, which is now a simulated login */}
             <Link href="/login">
               <LogOut className="h-5 w-5" />
             </Link>
@@ -122,5 +117,4 @@ export function UserDashboardSidebarContent() {
   );
 }
 
-// Need to import auth to get current user details for sidebar footer
-import { auth } from "@/lib/firebase/config";
+// Removed: import { auth } from "@/lib/firebase/config";
