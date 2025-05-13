@@ -12,6 +12,7 @@ import {
   Building2,
   Users,
   BookOpen,
+  UploadCloud, // Added icon for upload
 } from "lucide-react";
 
 import {
@@ -93,6 +94,7 @@ const navItems: NavItemProps[] = [
       { href: "/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Forms" },
     ],
   },
+  { href: "/dashboard/upload-document", icon: <UploadCloud />, label: "Upload Document", tooltip: "Upload New Document" },
   { href: "/dashboard/settings", icon: <Settings />, label: "Settings", tooltip: "App Settings" },
 ];
 
