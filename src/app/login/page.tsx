@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -5,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { UserRound, ShieldCheck, LogIn, Building2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +38,7 @@ const loginFormSchema = z.object({
 type LoginFormValues = z.infer<typeof loginFormSchema>;
 
 export default function LoginPage() {
+  const router = useRouter();
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
@@ -47,9 +50,9 @@ export default function LoginPage() {
 
   function onSubmit(data: LoginFormValues) {
     // In a real app, you would handle authentication here.
-    // For this example, we'll just show a toast.
+    // For this example, we'll just show a toast and redirect.
     toast({
-      title: "Login Attempt",
+      title: "Login Successful",
       description: (
         <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
           <code className="text-white">{JSON.stringify(data, null, 2)}</code>
@@ -57,6 +60,7 @@ export default function LoginPage() {
       ),
     });
     console.log(data);
+    router.push('/dashboard');
   }
 
   return (
@@ -66,7 +70,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 text-primary">
              <Building2 className="h-8 w-8" />
           </div>
-          <CardTitle className="text-3xl font-bold tracking-tight">AccessPoint Login</CardTitle>
+          <CardTitle className="text-3xl font-bold tracking-tight">Sathi Login</CardTitle>
           <CardDescription className="text-muted-foreground">
             Sign in to access your account.
           </CardDescription>
@@ -144,10 +148,11 @@ export default function LoginPage() {
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} AccessPoint. All rights reserved.
+            &copy; {new Date().getFullYear()} sathi. All rights reserved.
           </p>
         </CardFooter>
       </Card>
     </div>
   );
 }
+

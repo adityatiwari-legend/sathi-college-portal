@@ -16,7 +16,7 @@ const SplashScreen = () => {
       `}</style>
       <ShieldCheck className="h-28 w-28 text-primary mb-6" strokeWidth={1.5} />
       <h1 className="text-5xl md:text-6xl font-bold text-primary tracking-tight">
-        AccessPoint
+        Saathi
       </h1>
       <p className="text-lg md:text-xl text-muted-foreground mt-3">
         Secure. Reliable. Accessible.
