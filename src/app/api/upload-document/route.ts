@@ -1,39 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth, adminDb, adminStorage } from '@/lib/firebase/admin';
-import { DecodedIdToken } from 'firebase-admin/auth';
+import { adminDb, adminStorage } from '@/lib/firebase/admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
-  if (!adminInstance) {
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized.' }, { status: 500 });
+  if (!adminDb || !adminStorage) {
+    return NextResponse.json({ error: 'Firebase Admin SDK not initialized properly (DB or Storage missing).' }, { status: 500 });
   }
-
-  const authorization = request.headers.get('Authorization');
-  if (!authorization?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized: No token provided' }, { status: 401 });
-  }
-  const idToken = authorization.split('Bearer ')[1];
-
-  let decodedToken: DecodedIdToken;
-  try {
-    decodedToken = await adminAuth.verifyIdToken(idToken);
-  } catch (error) {
-    console.error('Error verifying token:', error);
-    return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-  }
-
-  const userId = decodedToken.uid;
 
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
+    const uploaderContext = formData.get('uploaderContext') as string || 'unknown'; // 'admin' or 'user'
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
     const bucket = adminStorage.bucket();
-    const fileName = `${userId}/${Date.now()}-${file.name}`;
-    const fileUpload = bucket.file(fileName);
+    
+    // Use a path based on uploaderContext or a general path
+    const basePath = uploaderContext === 'admin' ? 'admin_uploads' : 'user_uploads';
+    const fileNameInStorage = `${basePath}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+    
+    const fileUpload = bucket.file(fileNameInStorage);
 
     const stream = fileUpload.createWriteStream({
       metadata: {
@@ -41,7 +30,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Convert ArrayBuffer to Buffer
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     await new Promise((resolve, reject) => {
@@ -59,13 +47,13 @@ export async function POST(request: NextRequest) {
     });
 
     const docRef = await adminDb.collection('uploadedDocuments').add({
-      userId,
-      fileName: file.name,
-      storagePath: fileName,
+      uploaderContext: uploaderContext, // Store the context (admin/user)
+      originalFileName: file.name,
+      storagePath: fileNameInStorage,
       downloadUrl: url,
       contentType: file.type,
       size: file.size,
-      uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
+      uploadedAt: FieldValue.serverTimestamp(),
     });
 
     return NextResponse.json({
@@ -75,9 +63,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error processing file upload:', error);
-    return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
+    // Check if error is an instance of Error to access message property safely
+    const errorMessage = error instanceof Error ? error.message : 'Failed to upload file';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
-
-// Placeholder for adminInstance if admin.ts fails to initialize
-const adminInstance = adminAuth && adminDb && adminStorage ? { auth: adminAuth, firestore: adminDb, storage: adminStorage } : null;

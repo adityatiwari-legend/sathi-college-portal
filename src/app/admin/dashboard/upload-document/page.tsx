@@ -8,8 +8,6 @@ import Link from "next/link";
 import { ArrowLeft, UploadCloud, FileUp, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-// import { auth } from "@/lib/firebase/config"; // Firebase auth import removed
-// import type { User } from "firebase/auth"; // User type import removed
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
@@ -21,16 +19,8 @@ export default function AdminUploadDocumentPage() {
   const [uploadProgress, setUploadProgress] = React.useState(0);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = React.useState<string | null>(null);
-  // const [currentUser, setCurrentUser] = React.useState<User | null>(null); // currentUser state removed
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  // React.useEffect(() => { // Firebase auth listener removed
-  //   const unsubscribe = auth.onAuthStateChanged((user) => {
-  //     setCurrentUser(user);
-  //   });
-  //   return () => unsubscribe();
-  // }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -65,24 +55,17 @@ export default function AdminUploadDocumentPage() {
       return;
     }
 
-    // if (!currentUser) { // currentUser check removed
-    //   toast({
-    //     title: "Authentication Error",
-    //     description: "You must be logged in to upload files.",
-    //     variant: "destructive",
-    //   });
-    //   return;
-    // }
-
     setIsUploading(true);
     setUploadError(null);
     setUploadSuccess(null);
     setUploadProgress(0); 
 
     try {
-      // const idToken = await currentUser.getIdToken(true); // idToken retrieval removed
       const formData = new FormData();
       formData.append("file", selectedFile);
+      // Add a field to indicate the uploader context if the API needs it
+      formData.append("uploaderContext", "admin");
+
 
       let progress = 0;
       const progressInterval = setInterval(() => {
@@ -97,9 +80,6 @@ export default function AdminUploadDocumentPage() {
 
       const response = await fetch("/api/upload-document", {
         method: "POST",
-        // headers: { // Authorization header removed
-        //   Authorization: `Bearer ${idToken}`,
-        // },
         body: formData,
       });
 
@@ -123,11 +103,7 @@ export default function AdminUploadDocumentPage() {
       if (error.message) {
         errorMessage = error.message;
       }
-      // Add specific message if it's likely an auth issue due to backend expecting token
-      if (error.message && error.message.toLowerCase().includes("unauthorized") || (error instanceof Error && error.message.includes("401"))){
-        errorMessage = "Upload failed. The server requires authentication which is currently not configured on the client.";
-      }
-
+      
       setUploadError(errorMessage);
       toast({
         title: "Upload Failed",
