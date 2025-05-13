@@ -10,7 +10,7 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
-            <Link href="/dashboard">
+            <Link href="/admin/dashboard"> {/* Updated back link */}
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>

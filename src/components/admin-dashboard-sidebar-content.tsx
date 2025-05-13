@@ -12,7 +12,7 @@ import {
   Building2,
   Users,
   BookOpen,
-  UploadCloud, // Added icon for upload
+  UploadCloud,
 } from "lucide-react";
 
 import {
@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+// import { cn } from "@/lib/utils"; // cn might not be needed here if not using conditional classes based on NavItem logic
 
 interface NavItemProps {
   href: string;
@@ -40,7 +40,12 @@ interface NavItemProps {
 
 const NavItem = ({ href, icon, label, tooltip, subItems }: NavItemProps) => {
   const pathname = usePathname();
-  const isActive = pathname === href || (subItems && subItems.some(sub => pathname.startsWith(sub.href)));
+  // Check if current path starts with the item's href for active state.
+  // For sub-items, if any sub-item's href matches the start of pathname, the parent is active.
+  const isActive = pathname === href || 
+                   (href !== '/admin/dashboard' && pathname.startsWith(href)) || // Handles cases like /admin/dashboard/forms matching /admin/dashboard/forms/admission
+                   (subItems && subItems.some(sub => pathname.startsWith(sub.href)));
+
 
   if (subItems && subItems.length > 0) {
     return (
@@ -48,7 +53,6 @@ const NavItem = ({ href, icon, label, tooltip, subItems }: NavItemProps) => {
         <SidebarMenuButton
           tooltip={tooltip}
           isActive={isActive}
-          // data-state might be 'open' or 'closed' if it's a collapsible trigger
         >
           {icon}
           <span>{label}</span>
@@ -57,7 +61,7 @@ const NavItem = ({ href, icon, label, tooltip, subItems }: NavItemProps) => {
           {subItems.map((item) => (
              <SidebarMenuSubItem key={item.href}>
                <Link href={item.href} passHref legacyBehavior>
-                <SidebarMenuSubButton isActive={pathname === item.href}>
+                <SidebarMenuSubButton isActive={pathname === item.href || pathname.startsWith(item.href)}>
                   {item.icon}
                   <span>{item.label}</span>
                 </SidebarMenuSubButton>
@@ -83,29 +87,29 @@ const NavItem = ({ href, icon, label, tooltip, subItems }: NavItemProps) => {
 
 
 const navItems: NavItemProps[] = [
-  { href: "/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "Dashboard Home" },
+  { href: "/admin/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "Admin Dashboard Home" },
   {
-    href: "/dashboard/forms",
+    href: "/admin/dashboard/forms", // Parent path for forms section
     icon: <FileText />,
     label: "College Forms",
     tooltip: "Manage Forms",
     subItems: [
-      { href: "/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Forms" },
-      { href: "/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Forms" },
+      { href: "/admin/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Forms" },
+      { href: "/admin/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Forms" },
     ],
   },
-  { href: "/dashboard/upload-document", icon: <UploadCloud />, label: "Upload Document", tooltip: "Upload New Document" },
-  { href: "/dashboard/settings", icon: <Settings />, label: "Settings", tooltip: "App Settings" },
+  { href: "/admin/dashboard/upload-document", icon: <UploadCloud />, label: "Upload Document", tooltip: "Manage Uploaded Documents" },
+  { href: "/admin/dashboard/settings", icon: <Settings />, label: "Settings", tooltip: "App Settings" },
 ];
 
-export function DashboardSidebarContent() {
+export function AdminDashboardSidebarContent() { // Renamed component
   return (
     <>
       <SidebarHeader className="p-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href="/admin/dashboard" className="flex items-center gap-2">
           <Building2 className="h-8 w-8 text-primary" />
           <h2 className="text-xl font-semibold tracking-tight text-primary">
-            Sathi Portal
+            Sathi Admin
           </h2>
         </Link>
       </SidebarHeader>
@@ -119,18 +123,18 @@ export function DashboardSidebarContent() {
       <SidebarFooter className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src="https://picsum.photos/id/237/200/200" alt="User Avatar" data-ai-hint="user avatar" />
-            <AvatarFallback>JD</AvatarFallback>
+            <AvatarImage src="https://picsum.photos/id/237/200/200" alt="Admin Avatar" data-ai-hint="admin avatar" />
+            <AvatarFallback>AD</AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
             <span className="text-sm font-medium text-sidebar-foreground">
-              John Doe
+              Admin User
             </span>
             <span className="text-xs text-sidebar-foreground/70">
               Administrator
             </span>
           </div>
-          <Button variant="ghost" size="icon" className="ml-auto text-sidebar-foreground/70 hover:text-sidebar-foreground">
+          <Button variant="ghost" size="icon" className="ml-auto text-sidebar-foreground/70 hover:text-sidebar-foreground" asChild>
             <Link href="/login">
               <LogOut className="h-5 w-5" />
             </Link>

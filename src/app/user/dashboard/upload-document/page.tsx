@@ -8,17 +8,17 @@ import Link from "next/link";
 import { ArrowLeft, UploadCloud, FileUp, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase/config"; // Firebase client auth
+import { auth } from "@/lib/firebase/config"; 
 import type { User } from "firebase/auth";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 
-export default function UploadDocumentPage() {
+export default function UserUploadDocumentPage() {
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
-  const [uploadProgress, setUploadProgress] = React.useState(0); // Can be used if backend provides progress
+  const [uploadProgress, setUploadProgress] = React.useState(0);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = React.useState<string | null>(null);
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
@@ -28,6 +28,15 @@ export default function UploadDocumentPage() {
   React.useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
+      if (!user) {
+        toast({
+            title: "Not Logged In",
+            description: "Please log in to upload documents.",
+            variant: "destructive",
+        });
+        // Optionally redirect to login if not authenticated
+        // router.push('/login'); 
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -77,19 +86,17 @@ export default function UploadDocumentPage() {
     setIsUploading(true);
     setUploadError(null);
     setUploadSuccess(null);
-    setUploadProgress(0); // Reset progress
+    setUploadProgress(0); 
 
     try {
       const idToken = await currentUser.getIdToken(true);
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      // Simulate progress for demo purposes if backend doesn't stream progress
-      // In a real scenario, you'd use XMLHttpRequest for progress or server-sent events
       let progress = 0;
       const progressInterval = setInterval(() => {
         progress += 10;
-        if (progress <= 90) { // Don't complete with this simulation
+        if (progress <= 90) { 
              setUploadProgress(progress);
         } else {
             clearInterval(progressInterval)
@@ -105,8 +112,8 @@ export default function UploadDocumentPage() {
         body: formData,
       });
 
-      clearInterval(progressInterval); // Stop simulation
-      setUploadProgress(100); // Mark as complete
+      clearInterval(progressInterval); 
+      setUploadProgress(100); 
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -119,11 +126,10 @@ export default function UploadDocumentPage() {
         title: "Upload Successful",
         description: `${selectedFile.name} has been uploaded.`,
       });
-      // Optionally reset file input
+      // Optionally reset after successful upload
       // setSelectedFile(null);
       // setFileName(null);
-      // if (fileInputRef.current) fileInputRef.current.value = "";
-
+      // if(fileInputRef.current) fileInputRef.current.value = "";
     } catch (error: any) {
       console.error("Upload error:", error);
       setUploadError(error.message || "An unexpected error occurred during upload.");
@@ -134,7 +140,6 @@ export default function UploadDocumentPage() {
       });
     } finally {
       setIsUploading(false);
-      // setUploadProgress(0); // Reset progress if you want it to disappear after completion/error
     }
   };
 
@@ -152,20 +157,20 @@ export default function UploadDocumentPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
-            <Link href="/dashboard">
+            <Link href="/user/dashboard"> 
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Upload Document</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Upload Your Document</h1>
         </div>
       </div>
       
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Document Upload Center</CardTitle>
+          <CardTitle>Document Upload</CardTitle>
           <CardDescription>
-            Use this section to upload various documents required for college processes.
-            Ensure you are logged in.
+            Upload your documents here. Ensure you are logged in.
+            Supported formats: PDF, DOC, DOCX, JPG, PNG. Max 5MB.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -176,9 +181,9 @@ export default function UploadDocumentPage() {
               isUploading && "border-muted cursor-not-allowed opacity-70"
             )}
             onClick={handleBrowseClick}
-            onDragOver={(e) => { if (!isUploading) e.preventDefault();}}
+            onDragOver={(e) => { if (!isUploading && currentUser) e.preventDefault();}} // Allow drag only if logged in
             onDrop={(e) => {
-              if (isUploading) return;
+              if (isUploading || !currentUser) return; // Prevent drop if uploading or not logged in
               e.preventDefault();
               const file = e.dataTransfer.files?.[0];
               if (file) {
@@ -195,9 +200,9 @@ export default function UploadDocumentPage() {
           >
             <UploadCloud className="h-16 w-16 text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-2 text-center">
-              {isUploading ? "Uploading..." : "Drag and drop files here or click to browse."}
+              {isUploading ? "Uploading..." : (currentUser ? "Drag and drop files here or click to browse." : "Please log in to enable uploads.")}
             </p>
-            <Button variant="outline" onClick={(e) => {e.stopPropagation(); handleBrowseClick();}} disabled={isUploading}>
+            <Button variant="outline" onClick={(e) => {e.stopPropagation(); handleBrowseClick();}} disabled={isUploading || !currentUser}>
               {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Browse File
             </Button>
@@ -207,7 +212,7 @@ export default function UploadDocumentPage() {
               onChange={handleFileChange}
               className="hidden"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" 
-              disabled={isUploading}
+              disabled={isUploading || !currentUser}
             />
           </div>
 
@@ -256,11 +261,10 @@ export default function UploadDocumentPage() {
           </div>
 
           <div>
-            <h3 className="font-semibold mt-6 mb-2">Supported Formats & Guidelines:</h3>
+            <h3 className="font-semibold mt-6 mb-2">Important Notes:</h3>
             <ul className="list-disc list-inside text-muted-foreground mt-2 space-y-1 text-sm">
-              <li>Supported file types: PDF, DOC, DOCX, JPG, JPEG, PNG.</li>
-              <li>Maximum file size: 5MB (example limit, actual limit may vary).</li>
-              <li>Ensure documents are legible and complete.</li>
+              <li>Ensure documents are legible and complete before uploading.</li>
+              <li>You can track your uploaded documents through your dashboard once implemented.</li>
             </ul>
           </div>
         </CardContent>

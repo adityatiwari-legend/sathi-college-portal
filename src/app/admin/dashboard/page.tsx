@@ -9,13 +9,13 @@ import {
 import { FileText, Users, Settings } from "lucide-react";
 import Link from "next/link";
 
-export default function DashboardPage() {
+export default function AdminDashboardPage() { // Renamed component
   return (
     <div className="space-y-6">
       <div className="flex flex-col space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome to the Sathi College Portal. Manage forms and settings efficiently.
+          Welcome to the Sathi College Portal Admin Panel. Manage forms and settings efficiently.
         </p>
       </div>
 
@@ -31,7 +31,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground mb-4">
               Access and manage various college-related forms like admission, course registration, etc.
             </p>
-            <Link href="/dashboard/forms/admission" className="text-sm font-medium text-primary hover:underline">
+            <Link href="/admin/dashboard/forms/admission" className="text-sm font-medium text-primary hover:underline">
               Go to Forms &rarr;
             </Link>
           </CardContent>
@@ -65,7 +65,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground mb-4">
               Configure application settings, themes, and integrations.
             </p>
-            <Link href="/dashboard/settings" className="text-sm font-medium text-primary hover:underline">
+            <Link href="/admin/dashboard/settings" className="text-sm font-medium text-primary hover:underline">
               Configure Settings &rarr;
             </Link>
           </CardContent>
@@ -87,15 +87,22 @@ export default function DashboardPage() {
             <div className="p-4 border rounded-lg bg-card/50">
               <h3 className="font-semibold mb-2">Admission Forms</h3>
               <p className="text-sm text-muted-foreground">Create, view, and manage student admission applications.</p>
-              <Link href="/dashboard/forms/admission" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
+              <Link href="/admin/dashboard/forms/admission" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
                 View Admission Forms &rarr;
               </Link>
             </div>
             <div className="p-4 border rounded-lg bg-card/50">
               <h3 className="font-semibold mb-2">Course Registration</h3>
               <p className="text-sm text-muted-foreground">Handle student course selections and registrations for academic terms.</p>
-               <Link href="/dashboard/forms/course-registration" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
+               <Link href="/admin/dashboard/forms/course-registration" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
                 View Course Registrations &rarr;
+              </Link>
+            </div>
+             <div className="p-4 border rounded-lg bg-card/50">
+              <h3 className="font-semibold mb-2">Upload Documents</h3>
+              <p className="text-sm text-muted-foreground">Manage uploaded documents from users or admins.</p>
+               <Link href="/admin/dashboard/upload-document" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
+                Manage Uploads &rarr;
               </Link>
             </div>
           </div>
