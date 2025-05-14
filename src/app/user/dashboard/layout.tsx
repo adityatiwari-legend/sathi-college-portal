@@ -12,6 +12,7 @@ import { UserDashboardSidebarContent } from '@/components/user-dashboard-sidebar
 import { Button } from '@/components/ui/button';
 import { Home } from 'lucide-react';
 import Link from 'next/link';
+import { VoiceSearchBar } from '@/components/ui/voice-search-bar';
 
 export const metadata: Metadata = {
   title: 'Sathi User Dashboard',
@@ -23,6 +24,11 @@ export default function UserDashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const handleSearch = (query: string) => {
+    console.log("User search query:", query);
+    // Implement search logic here for user dashboard
+  };
+
   return (
     <SidebarProvider defaultOpen>
       <Sidebar collapsible="icon" variant="sidebar" side="left">
@@ -32,6 +38,12 @@ export default function UserDashboardLayout({
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
           <div className="flex items-center">
             <SidebarTrigger className="mr-2 md:hidden" />
+          </div>
+          <div className="flex-grow px-2 sm:px-4 max-w-xl">
+            <VoiceSearchBar 
+              onSearchChange={handleSearch}
+              placeholder="Search your dashboard..."
+            />
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" asChild>
