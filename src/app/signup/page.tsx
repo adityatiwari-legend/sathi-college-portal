@@ -37,7 +37,7 @@ const signupFormSchema = z.object({
   confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters." }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match.",
-  path: ["confirmPassword"], // Point error to confirmPassword field
+  path: ["confirmPassword"],
 });
 
 type SignupFormValues = z.infer<typeof signupFormSchema>;
@@ -48,15 +48,22 @@ export default function SignupPage() {
   const [isCheckingAuth, setIsCheckingAuth] = React.useState(true);
 
   React.useEffect(() => {
+    console.log("SignupPage: useEffect for onAuthStateChanged running.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("SignupPage: onAuthStateChanged triggered. User:", user ? user.uid : 'null');
       if (user) {
-        // User is already signed in, redirect them away from signup page
+        console.log("SignupPage: User found, redirecting to /user/dashboard.");
         router.push('/user/dashboard');
+        setIsCheckingAuth(false); 
       } else {
+        console.log("SignupPage: No user found, setting isCheckingAuth to false to show form.");
         setIsCheckingAuth(false);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      console.log("SignupPage: Cleaning up onAuthStateChanged subscription.");
+      unsubscribe();
+    };
   }, [router]);
 
   const form = useForm<SignupFormValues>({
@@ -111,12 +118,15 @@ export default function SignupPage() {
   }
 
   if (isCheckingAuth) {
+    console.log("SignupPage: Rendering loader because isCheckingAuth is true.");
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+         <p className="ml-2">Checking authentication...</p>
       </div>
     );
   }
+  console.log("SignupPage: Rendering signup form because isCheckingAuth is false.");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">

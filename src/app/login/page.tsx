@@ -5,11 +5,11 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { LogIn, Building2, Loader2, UserRound } from "lucide-react"; // UserRound for icon consistency
-import { useRouter, redirect } from "next/navigation"; // Added redirect
+import { LogIn, Building2, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { signInWithEmailAndPassword, signInWithPopup, User, onAuthStateChanged } from "firebase/auth";
-import { auth, googleAuthProvider } from "@/lib/firebase/config";
+import { auth, googleAuthProvider, firebaseConfig } from "@/lib/firebase/config";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +35,7 @@ import Link from "next/link";
 
 const loginFormSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(1, { message: "Password cannot be empty." }), // Min 1, Firebase handles length
+  password: z.string().min(1, { message: "Password cannot be empty." }),
 });
 
 type LoginFormValues = z.infer<typeof loginFormSchema>;
@@ -47,17 +47,22 @@ export default function LoginPage() {
   const [isCheckingAuth, setIsCheckingAuth] = React.useState(true);
 
   React.useEffect(() => {
+    console.log("LoginPage: useEffect for onAuthStateChanged running.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("LoginPage: onAuthStateChanged triggered. User:", user ? user.uid : 'null');
       if (user) {
-        // User is signed in, redirect to user dashboard
-        // Potentially check for admin role here in the future if needed
+        console.log("LoginPage: User found, redirecting to /user/dashboard.");
         router.push('/user/dashboard');
+        setIsCheckingAuth(false); 
       } else {
-        // User is signed out
+        console.log("LoginPage: No user found, setting isCheckingAuth to false to show form.");
         setIsCheckingAuth(false);
       }
     });
-    return () => unsubscribe(); // Cleanup subscription
+    return () => {
+      console.log("LoginPage: Cleaning up onAuthStateChanged subscription.");
+      unsubscribe();
+    };
   }, [router]);
 
 
@@ -110,12 +115,12 @@ export default function LoginPage() {
     console.log("Attempting Firebase Email/Password Sign In with config:", auth.app.options);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-      console.log("Logged in user:", userCredential.user);
+      console.log("Logged in user:", userCredential.user.uid);
       toast({
         title: "Login Successful",
         description: `Welcome back! Redirecting to your dashboard.`,
       });
-      router.push('/user/dashboard'); // Redirect to user dashboard by default
+      router.push('/user/dashboard');
     } catch (error) {
       handleAuthError(error, "Login");
     } finally {
@@ -128,12 +133,12 @@ export default function LoginPage() {
     console.log("Attempting Firebase Google Sign In with config:", auth.app.options);
     try {
       const userCredential = await signInWithPopup(auth, googleAuthProvider);
-      console.log("Logged in user (Google):", userCredential.user);
+      console.log("Logged in user (Google):", userCredential.user.uid);
       toast({
         title: "Login Successful",
         description: `Welcome! Redirecting to your dashboard.`,
       });
-      router.push('/user/dashboard'); // Redirect to user dashboard
+      router.push('/user/dashboard');
     } catch (error) {
       handleAuthError(error, "Google Sign-In");
     } finally {
@@ -142,13 +147,15 @@ export default function LoginPage() {
   }
 
   if (isCheckingAuth) {
+    console.log("LoginPage: Rendering loader because isCheckingAuth is true.");
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-2">Checking authentication...</p>
       </div>
     );
   }
-
+  console.log("LoginPage: Rendering login form because isCheckingAuth is false.");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
