@@ -5,10 +5,10 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { UserRound, ShieldCheck, LogIn, Building2, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { LogIn, Building2, Loader2, UserRound } from "lucide-react"; // UserRound for icon consistency
+import { useRouter, redirect } from "next/navigation"; // Added redirect
 import Image from "next/image";
-import { signInWithEmailAndPassword, signInWithPopup, User } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, User, onAuthStateChanged } from "firebase/auth";
 import { auth, googleAuthProvider } from "@/lib/firebase/config";
 
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Card,
   CardContent,
@@ -32,11 +31,11 @@ import {
 } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import Link from "next/link";
 
 const loginFormSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  role: z.enum(["user", "admin"], { required_error: "Please select a role." }),
+  password: z.string().min(1, { message: "Password cannot be empty." }), // Min 1, Firebase handles length
 });
 
 type LoginFormValues = z.infer<typeof loginFormSchema>;
@@ -45,37 +44,39 @@ export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = React.useState(true);
+
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is signed in, redirect to user dashboard
+        // Potentially check for admin role here in the future if needed
+        router.push('/user/dashboard');
+      } else {
+        // User is signed out
+        setIsCheckingAuth(false);
+      }
+    });
+    return () => unsubscribe(); // Cleanup subscription
+  }, [router]);
+
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
       email: "",
       password: "",
-      role: "user",
     },
   });
 
-  const handleLoginSuccess = (user: User, role: "user" | "admin") => {
-    console.log("Logged in user:", user);
-    toast({
-      title: "Login Successful",
-      description: `Welcome! Redirecting to ${role} dashboard.`,
-    });
-    if (role === "admin") {
-      router.push('/admin/dashboard');
-    } else {
-      router.push('/user/dashboard');
-    }
-  };
-
-  const handleLoginError = (error: any) => {
-    console.error("Login error details:", error); // Log the full error object
+  const handleAuthError = (error: any, context: "Login" | "Google Sign-In") => {
+    console.error(`${context} error details:`, error);
     let errorMessage = "An unexpected error occurred. Please try again.";
     if (error.code) {
       switch (error.code) {
         case "auth/user-not-found":
         case "auth/wrong-password":
-        case "auth/invalid-credential": // Common for wrong email/password
+        case "auth/invalid-credential":
           errorMessage = "Invalid email or password.";
           break;
         case "auth/invalid-email":
@@ -91,14 +92,14 @@ export default function LoginPage() {
             errorMessage = "Network error. Please check your internet connection.";
             break;
         case "auth/configuration-not-found":
-             errorMessage = "Firebase Authentication configuration error. Please check Firebase project settings. (auth/configuration-not-found)";
+             errorMessage = `Firebase Authentication configuration error (${context}). Please check Firebase project settings. (auth/configuration-not-found)`;
              break;
         default:
-          errorMessage = error.message || `Login failed: ${error.code || 'Unknown error'}. Please try again.`;
+          errorMessage = error.message || `${context} failed: ${error.code || 'Unknown error'}. Please try again.`;
       }
     }
     toast({
-      title: "Login Failed",
+      title: `${context} Failed`,
       description: errorMessage,
       variant: "destructive",
     });
@@ -106,12 +107,17 @@ export default function LoginPage() {
 
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
-    console.log("Attempting Firebase Email/Password Sign In with config:", auth.app.options); // Debug log
+    console.log("Attempting Firebase Email/Password Sign In with config:", auth.app.options);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-      handleLoginSuccess(userCredential.user, data.role);
+      console.log("Logged in user:", userCredential.user);
+      toast({
+        title: "Login Successful",
+        description: `Welcome back! Redirecting to your dashboard.`,
+      });
+      router.push('/user/dashboard'); // Redirect to user dashboard by default
     } catch (error) {
-      handleLoginError(error);
+      handleAuthError(error, "Login");
     } finally {
       setIsLoading(false);
     }
@@ -119,16 +125,28 @@ export default function LoginPage() {
 
   async function handleGoogleLogin() {
     setIsGoogleLoading(true);
-    console.log("Attempting Firebase Google Sign In with config:", auth.app.options); // Debug log for Google sign-in
+    console.log("Attempting Firebase Google Sign In with config:", auth.app.options);
     try {
       const userCredential = await signInWithPopup(auth, googleAuthProvider);
-      const selectedRole = form.getValues("role");
-      handleLoginSuccess(userCredential.user, selectedRole);
+      console.log("Logged in user (Google):", userCredential.user);
+      toast({
+        title: "Login Successful",
+        description: `Welcome! Redirecting to your dashboard.`,
+      });
+      router.push('/user/dashboard'); // Redirect to user dashboard
     } catch (error) {
-      handleLoginError(error);
+      handleAuthError(error, "Google Sign-In");
     } finally {
       setIsGoogleLoading(false);
     }
+  }
+
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
   }
 
 
@@ -173,43 +191,6 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormLabel>Select Your Role</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-4 pt-1"
-                        disabled={isLoading || isGoogleLoading}
-                      >
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="user" id="role-user" disabled={isLoading || isGoogleLoading} />
-                          </FormControl>
-                          <FormLabel htmlFor="role-user" className="font-normal flex items-center gap-2 cursor-pointer">
-                            <UserRound className="h-5 w-5 text-muted-foreground" />
-                            User
-                          </FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="admin" id="role-admin" disabled={isLoading || isGoogleLoading} />
-                          </FormControl>
-                          <FormLabel htmlFor="role-admin" className="font-normal flex items-center gap-2 cursor-pointer">
-                            <ShieldCheck className="h-5 w-5 text-muted-foreground" />
-                            Administrator
-                          </FormLabel>
-                        </FormItem>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
                <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-semibold py-3 text-base" disabled={isLoading || isGoogleLoading}>
                 {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <LogIn className="mr-2 h-5 w-5" />}
                 Sign In
@@ -221,6 +202,12 @@ export default function LoginPage() {
             {isGoogleLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Image src="/google-logo.svg" alt="Google logo" width={20} height={20} className="mr-2" data-ai-hint="google logo"/>}
             Sign in with Google
           </Button>
+          <div className="mt-6 text-center text-sm">
+            Don't have an account?{" "}
+            <Link href="/signup" className="font-medium text-primary hover:underline">
+              Sign Up
+            </Link>
+          </div>
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
