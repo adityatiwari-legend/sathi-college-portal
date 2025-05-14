@@ -75,6 +75,7 @@ export function UserDashboardSidebarContent() {
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("Sidebar onAuthStateChanged - User:", user?.displayName, "| Email:", user?.email, "| PhotoURL:", user?.photoURL);
       setCurrentUser(user);
     });
     return () => unsubscribe();
@@ -84,14 +85,22 @@ export function UserDashboardSidebarContent() {
   const userEmail = currentUser?.email || "user@example.com";
   const userAvatar = currentUser?.photoURL || "https://placehold.co/200x200.png"; 
   
-  const getAvatarFallback = (name?: string | null) => {
-    if (!name) return "U";
-    const parts = name.split(" ");
-    if (parts.length > 1 && parts[0] && parts[1]) {
+  const getAvatarFallback = (name?: string | null): string => {
+    const processedName = name?.trim();
+    if (!processedName) return "U";
+
+    const parts = processedName.split(" ").filter(part => part.length > 0);
+
+    if (parts.length >= 2 && parts[0] && parts[1]) {
       return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     }
-    if (name.length >=2) return name.substring(0, 2).toUpperCase();
-    return name.substring(0,1).toUpperCase() || "U";
+    if (parts.length === 1 && parts[0].length >= 2) {
+      return parts[0].substring(0, 2).toUpperCase();
+    }
+    if (parts.length === 1 && parts[0].length === 1) {
+      return parts[0][0].toUpperCase();
+    }
+    return "U";
   };
   const avatarFallback = getAvatarFallback(userName);
 
