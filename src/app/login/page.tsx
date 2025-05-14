@@ -5,16 +5,17 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { LogIn, Building2, Loader2 } from "lucide-react";
+import { LogIn, Building2, Loader2, User, Shield } from "lucide-react"; // Added User and Shield icons
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { signInWithEmailAndPassword, signInWithPopup, User, onAuthStateChanged } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import { auth, googleAuthProvider, firebaseConfig } from "@/lib/firebase/config";
 
 import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -29,6 +30,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
@@ -36,9 +38,13 @@ import Link from "next/link";
 const loginFormSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(1, { message: "Password cannot be empty." }),
+  role: z.enum(["user", "admin"], {
+    required_error: "You need to select a role.",
+  }),
 });
 
 type LoginFormValues = z.infer<typeof loginFormSchema>;
+type Role = "user" | "admin";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -49,37 +55,47 @@ export default function LoginPage() {
   React.useEffect(() => {
     console.log("LoginPage: useEffect for onAuthStateChanged running to check initial auth state.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // We still want to know if a user session exists for debugging or potential future logic,
-      // but we won't automatically redirect from this page based on it.
       if (user) {
         console.log("LoginPage: onAuthStateChanged - An active user session exists:", user.uid);
+        // No automatic redirect here based on your previous request.
+        // User needs to actively log in.
       } else {
         console.log("LoginPage: onAuthStateChanged - No active user session found.");
       }
-      // Regardless of user state, we stop checking and allow the form to render.
-      // The actual login action is initiated by user interaction.
       setIsCheckingAuth(false);
       console.log("LoginPage: isCheckingAuth set to false, form should be visible.");
     });
 
-    // Cleanup subscription on component unmount
     return () => {
       console.log("LoginPage: Cleaning up onAuthStateChanged subscription.");
       unsubscribe();
     };
-  }, [router]); // Keep router in dependency array if other parts of the effect might use it,
-                // or if router instance changes should trigger re-subscription.
+  }, []);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
       email: "",
       password: "",
+      role: "user",
     },
   });
 
+  const handleLoginSuccess = (firebaseUser: FirebaseUser, role: Role) => {
+    console.log(`Logged in user: ${firebaseUser.uid}, selected role: ${role}`);
+    toast({
+      title: "Login Successful",
+      description: `Welcome back! Redirecting to your ${role} dashboard.`,
+    });
+    if (role === "admin") {
+      router.push('/admin/dashboard');
+    } else {
+      router.push('/user/dashboard');
+    }
+  };
+  
   const handleAuthError = (error: any, context: "Login" | "Google Sign-In") => {
-    console.error(`${context} error details:`, error);
+    console.error(`${context} error details:`, error, "Firebase config:", firebaseConfig); // Log config for debugging
     let errorMessage = "An unexpected error occurred. Please try again.";
     if (error.code) {
       switch (error.code) {
@@ -116,15 +132,10 @@ export default function LoginPage() {
 
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
-    console.log("Attempting Firebase Email/Password Sign In with config:", firebaseConfig); // Use firebaseConfig directly if imported
+    console.log("Attempting Firebase Email/Password Sign In with config:", firebaseConfig);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-      console.log("Logged in user:", userCredential.user.uid);
-      toast({
-        title: "Login Successful",
-        description: `Welcome back! Redirecting to your dashboard.`,
-      });
-      router.push('/user/dashboard'); // Redirect after successful login
+      handleLoginSuccess(userCredential.user, data.role);
     } catch (error) {
       handleAuthError(error, "Login");
     } finally {
@@ -133,16 +144,20 @@ export default function LoginPage() {
   }
 
   async function handleGoogleLogin() {
+    const selectedRole = form.getValues("role"); // Get current role selection
+    if (!selectedRole) {
+        toast({
+            title: "Role Not Selected",
+            description: "Please select a role (User or Admin) before signing in with Google.",
+            variant: "destructive"
+        });
+        return;
+    }
     setIsGoogleLoading(true);
-    console.log("Attempting Firebase Google Sign In with config:", firebaseConfig); // Use firebaseConfig directly if imported
+    console.log("Attempting Firebase Google Sign In with config:", firebaseConfig, "for role:", selectedRole);
     try {
       const userCredential = await signInWithPopup(auth, googleAuthProvider);
-      console.log("Logged in user (Google):", userCredential.user.uid);
-      toast({
-        title: "Login Successful",
-        description: `Welcome! Redirecting to your dashboard.`,
-      });
-      router.push('/user/dashboard'); // Redirect after successful login
+      handleLoginSuccess(userCredential.user, selectedRole);
     } catch (error) {
       handleAuthError(error, "Google Sign-In");
     } finally {
@@ -197,6 +212,41 @@ export default function LoginPage() {
                     <FormLabel>Password</FormLabel>
                     <FormControl>
                       <Input type="password" placeholder="••••••••" {...field} disabled={isLoading || isGoogleLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel>Select Role</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="flex flex-col space-y-1 sm:flex-row sm:space-y-0 sm:space-x-4"
+                        disabled={isLoading || isGoogleLoading}
+                      >
+                        <FormItem className="flex items-center space-x-2 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="user" id="role-user" />
+                          </FormControl>
+                          <FormLabel htmlFor="role-user" className="font-normal flex items-center">
+                            <User className="mr-2 h-4 w-4 text-muted-foreground" /> User
+                          </FormLabel>
+                        </FormItem>
+                        <FormItem className="flex items-center space-x-2 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="admin" id="role-admin" />
+                          </FormControl>
+                          <FormLabel htmlFor="role-admin" className="font-normal flex items-center">
+                            <Shield className="mr-2 h-4 w-4 text-muted-foreground" /> Admin
+                          </FormLabel>
+                        </FormItem>
+                      </RadioGroup>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
