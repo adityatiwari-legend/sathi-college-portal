@@ -1,17 +1,19 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { DecodedIdToken } from 'firebase-admin/auth';
+import { FieldValue } from 'firebase-admin/firestore'; // Correct import for FieldValue
 
 // Ensure admin SDK is initialized
 const adminInstance = adminAuth && adminDb ? { auth: adminAuth, firestore: adminDb } : null;
 
 export async function GET(request: NextRequest) {
-  if (!adminInstance) {
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized.' }, { status: 500 });
+  if (!adminInstance || !adminInstance.firestore) {
+    return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Firestore).' }, { status: 500 });
   }
-  // TODO: Add authentication check if needed for listing forms
+  // TODO: Add authentication check if needed for listing forms (e.g. only admins can list)
   try {
-    const snapshot = await adminInstance.firestore.collection('admissionForms').get();
+    const snapshot = await adminInstance.firestore.collection('admissionForms').orderBy('submittedAt', 'desc').get();
     const forms = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json(forms);
   } catch (error) {
@@ -21,8 +23,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!adminInstance) {
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized.' }, { status: 500 });
+  if (!adminInstance || !adminInstance.auth || !adminInstance.firestore) {
+    return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Auth or Firestore).' }, { status: 500 });
   }
 
   const authorization = request.headers.get('Authorization');
@@ -41,11 +43,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const formData = await request.json();
-    // TODO: Validate formData against a schema
+    // TODO: Validate formData against a schema (e.g., using Zod)
     const newForm = {
       ...formData,
-      userId: decodedToken.uid,
-      submittedAt: admin.firestore.FieldValue.serverTimestamp(),
+      userId: decodedToken.uid, // Store the UID of the authenticated user who submitted
+      userEmail: decodedToken.email, // Optionally store user's email
+      submittedAt: FieldValue.serverTimestamp(), // Use imported FieldValue
     };
     const docRef = await adminInstance.firestore.collection('admissionForms').add(newForm);
     return NextResponse.json({ message: 'Admission form submitted successfully', id: docRef.id }, { status: 201 });

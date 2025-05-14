@@ -1,19 +1,26 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { DecodedIdToken } from 'firebase-admin/auth';
+import { FieldValue } from 'firebase-admin/firestore'; // Import FieldValue
 
 // Ensure admin SDK is initialized
 const adminInstance = adminAuth && adminDb ? { auth: adminAuth, firestore: adminDb } : null;
 
-const SETTINGS_DOC_ID = 'appSettings'; // Single document for all app settings
+const SETTINGS_COLLECTION = 'settings';
+const APP_SETTINGS_DOC_ID = 'appGlobalSettings'; // Single document for all app settings
 
 export async function GET(request: NextRequest) {
-  if (!adminInstance) {
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized.' }, { status: 500 });
+  if (!adminInstance || !adminInstance.firestore) {
+    return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Firestore).' }, { status: 500 });
   }
-  // TODO: Add authentication and authorization (e.g., only admins can read settings)
+
+  // TODO: Secure this endpoint. Only authenticated admins should access settings.
+  // For now, allowing GET for simplicity, but this should be locked down.
+  // Example: Check for admin role after verifying token if this needs auth.
+
   try {
-    const docRef = adminInstance.firestore.collection('settings').doc(SETTINGS_DOC_ID);
+    const docRef = adminInstance.firestore.collection(SETTINGS_COLLECTION).doc(APP_SETTINGS_DOC_ID);
     const doc = await docRef.get();
     if (!doc.exists) {
       return NextResponse.json({ settings: {} }); // Default empty settings
@@ -26,8 +33,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!adminInstance) {
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized.' }, { status: 500 });
+  if (!adminInstance || !adminInstance.auth || !adminInstance.firestore) {
+    return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Auth or Firestore).' }, { status: 500 });
   }
 
   const authorization = request.headers.get('Authorization');
@@ -39,9 +46,10 @@ export async function POST(request: NextRequest) {
   let decodedToken: DecodedIdToken;
   try {
     decodedToken = await adminInstance.auth.verifyIdToken(idToken);
-    // TODO: Check if user is admin (e.g., using custom claims)
-    // if (!decodedToken.admin) {
-    //   return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
+    // TODO: Implement role-based access control.
+    // E.g., check for a custom claim like `decodedToken.admin === true`
+    // if (!decodedToken.adminRole) { // Assuming 'adminRole' is a custom claim
+    //   return NextResponse.json({ error: 'Forbidden: Insufficient permissions to update settings' }, { status: 403 });
     // }
   } catch (error) {
     console.error('Error verifying token:', error);
@@ -50,9 +58,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const settingsData = await request.json();
-    // TODO: Validate settingsData
-    const docRef = adminInstance.firestore.collection('settings').doc(SETTINGS_DOC_ID);
-    await docRef.set(settingsData, { merge: true }); // Use merge to update existing or create new
+    // TODO: Validate settingsData against a schema
+    const docRef = adminInstance.firestore.collection(SETTINGS_COLLECTION).doc(APP_SETTINGS_DOC_ID);
+    
+    const dataToUpdate = {
+        ...settingsData,
+        lastUpdatedBy: decodedToken.uid,
+        lastUpdatedAt: FieldValue.serverTimestamp()
+    };
+
+    await docRef.set(dataToUpdate, { merge: true }); // Use merge to update existing or create new
     return NextResponse.json({ message: 'Settings updated successfully' });
   } catch (error) {
     console.error('Error updating settings:', error);

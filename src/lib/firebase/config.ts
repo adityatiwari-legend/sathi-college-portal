@@ -1,5 +1,6 @@
+
 import { initializeApp, getApps, getApp, FirebaseOptions } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider } from "firebase/auth"; // Added GoogleAuthProvider
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -10,10 +11,16 @@ const firebaseConfig: FirebaseOptions = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Validate that all required environment variables are set
+let app;
+let auth;
+let db;
+let storage;
+let googleAuthProvider;
+
 if (
   !firebaseConfig.apiKey ||
   !firebaseConfig.authDomain ||
@@ -23,17 +30,18 @@ if (
   !firebaseConfig.appId
 ) {
   console.error(
-    "Firebase configuration error: Missing one or more required environment variables (NEXT_PUBLIC_FIREBASE_...)"
+    "Firebase configuration error: Missing one or more required NEXT_PUBLIC_FIREBASE_... environment variables. Firebase features will not work correctly."
   );
-  // You might want to throw an error here or handle it differently
-  // For now, we'll let it proceed, but auth/db operations will likely fail.
+  // To prevent app crash and allow a visual error or limited functionality:
+  // Initialize with dummy values or handle this state appropriately in your app.
+  // For now, services will be undefined and attempts to use them will fail.
+} else {
+  // Check if Firebase has already been initialized
+  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+  googleAuthProvider = new GoogleAuthProvider();
 }
 
-
-// Check if Firebase has already been initialized
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app); // Initialize Firestore
-const storage = getStorage(app); // Initialize Firebase Storage
-
-export { app, auth, db, storage };
+export { app, auth, db, storage, googleAuthProvider, firebaseConfig };

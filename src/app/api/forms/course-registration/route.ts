@@ -1,18 +1,20 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { DecodedIdToken } from 'firebase-admin/auth';
+import { FieldValue } from 'firebase-admin/firestore'; // Correct import for FieldValue
 
 // Ensure admin SDK is initialized
 const adminInstance = adminAuth && adminDb ? { auth: adminAuth, firestore: adminDb } : null;
 
 
 export async function GET(request: NextRequest) {
-  if (!adminInstance) {
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized.' }, { status: 500 });
+  if (!adminInstance || !adminInstance.firestore) {
+    return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Firestore).' }, { status: 500 });
   }
-  // TODO: Add authentication check if needed
+  // TODO: Add authentication check if needed (e.g., only admins can list)
   try {
-    const snapshot = await adminInstance.firestore.collection('courseRegistrations').get();
+    const snapshot = await adminInstance.firestore.collection('courseRegistrations').orderBy('registeredAt', 'desc').get();
     const registrations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json(registrations);
   } catch (error) {
@@ -22,8 +24,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!adminInstance) {
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized.' }, { status: 500 });
+  if (!adminInstance || !adminInstance.auth || !adminInstance.firestore) {
+    return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Auth or Firestore).' }, { status: 500 });
   }
   
   const authorization = request.headers.get('Authorization');
@@ -45,8 +47,9 @@ export async function POST(request: NextRequest) {
     // TODO: Validate registrationData against a schema
     const newRegistration = {
       ...registrationData,
-      userId: decodedToken.uid,
-      registeredAt: admin.firestore.FieldValue.serverTimestamp(),
+      userId: decodedToken.uid, // Store the UID of the authenticated user
+      userEmail: decodedToken.email, // Optionally store user's email
+      registeredAt: FieldValue.serverTimestamp(), // Use imported FieldValue
     };
     const docRef = await adminInstance.firestore.collection('courseRegistrations').add(newRegistration);
     return NextResponse.json({ message: 'Course registration successful', id: docRef.id }, { status: 201 });
