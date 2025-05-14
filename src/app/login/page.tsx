@@ -5,7 +5,7 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { LogIn, Building2, Loader2, User, Shield } from "lucide-react"; // Added User and Shield icons
+import { LogIn, Building2, Loader2, User, Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { signInWithEmailAndPassword, signInWithPopup, User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
@@ -44,7 +44,13 @@ const loginFormSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof loginFormSchema>;
-type Role = "user" | "admin";
+
+// --- Hardcoded Admin Credentials ---
+// !!! IMPORTANT: Change these to something secure and keep them safe !!!
+// This method of admin access is not highly secure for production.
+const ADMIN_EMAIL = "admin@sathi.com";
+const ADMIN_PASSWORD = "adminpassword";
+// --- End Hardcoded Admin Credentials ---
 
 export default function LoginPage() {
   const router = useRouter();
@@ -57,8 +63,7 @@ export default function LoginPage() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         console.log("LoginPage: onAuthStateChanged - An active user session exists:", user.uid);
-        // No automatic redirect here based on your previous request.
-        // User needs to actively log in.
+        // No automatic redirect here. User needs to actively log in.
       } else {
         console.log("LoginPage: onAuthStateChanged - No active user session found.");
       }
@@ -81,28 +86,25 @@ export default function LoginPage() {
     },
   });
 
-  const handleLoginSuccess = (firebaseUser: FirebaseUser, role: Role) => {
-    console.log(`Logged in user: ${firebaseUser.uid}, selected role: ${role}`);
+  // This function is now only for successful Firebase authenticated users (role 'user')
+  const handleLoginSuccess = (firebaseUser: FirebaseUser) => {
+    console.log(`Logged in user: ${firebaseUser.uid}`);
     toast({
       title: "Login Successful",
-      description: `Welcome back! Redirecting to your ${role} dashboard.`,
+      description: `Welcome back! Redirecting to your dashboard.`,
     });
-    if (role === "admin") {
-      router.push('/admin/dashboard');
-    } else {
-      router.push('/user/dashboard');
-    }
+    router.push('/user/dashboard'); // Always to user dashboard for Firebase auth
   };
   
   const handleAuthError = (error: any, context: "Login" | "Google Sign-In") => {
-    console.error(`${context} error details:`, error, "Firebase config:", firebaseConfig); // Log config for debugging
+    console.error(`${context} error details:`, error, "Firebase config:", firebaseConfig);
     let errorMessage = "An unexpected error occurred. Please try again.";
     if (error.code) {
       switch (error.code) {
         case "auth/user-not-found":
         case "auth/wrong-password":
         case "auth/invalid-credential":
-          errorMessage = "Invalid email or password.";
+          errorMessage = "Invalid email or password for user account.";
           break;
         case "auth/invalid-email":
           errorMessage = "Please enter a valid email address.";
@@ -132,10 +134,36 @@ export default function LoginPage() {
 
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
-    console.log("Attempting Firebase Email/Password Sign In with config:", firebaseConfig);
+    console.log("Login attempt with role:", data.role, "and email:", data.email);
+
+    if (data.role === "admin") {
+      if (data.email === ADMIN_EMAIL && data.password === ADMIN_PASSWORD) {
+        console.log("Admin login successful for:", data.email);
+        toast({
+          title: "Admin Login Successful",
+          description: "Redirecting to admin dashboard.",
+        });
+        // For hardcoded admin, we don't use Firebase auth. Just redirect.
+        router.push('/admin/dashboard');
+        setIsLoading(false);
+        return;
+      } else {
+        console.log("Admin login failed for:", data.email);
+        toast({
+          title: "Admin Login Failed",
+          description: "Invalid admin credentials.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    // User role login - uses Firebase Authentication
+    console.log("Attempting Firebase Email/Password Sign In for user with config:", firebaseConfig);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-      handleLoginSuccess(userCredential.user, data.role);
+      handleLoginSuccess(userCredential.user);
     } catch (error) {
       handleAuthError(error, "Login");
     } finally {
@@ -144,7 +172,7 @@ export default function LoginPage() {
   }
 
   async function handleGoogleLogin() {
-    const selectedRole = form.getValues("role"); // Get current role selection
+    const selectedRole = form.getValues("role"); 
     if (!selectedRole) {
         toast({
             title: "Role Not Selected",
@@ -153,11 +181,22 @@ export default function LoginPage() {
         });
         return;
     }
+
+    if (selectedRole === "admin") {
+        toast({
+            title: "Admin Login Method",
+            description: "Admin login requires specific email and password. Google Sign-In is for user accounts only.",
+            variant: "info"
+        });
+        return; // Prevent Google Sign-In if admin role is selected
+    }
+
+    // Proceed with Google Sign-In only for 'user' role
     setIsGoogleLoading(true);
-    console.log("Attempting Firebase Google Sign In with config:", firebaseConfig, "for role:", selectedRole);
+    console.log("Attempting Firebase Google Sign In for user role with config:", firebaseConfig);
     try {
       const userCredential = await signInWithPopup(auth, googleAuthProvider);
-      handleLoginSuccess(userCredential.user, selectedRole);
+      handleLoginSuccess(userCredential.user); // Google login always goes to user dashboard
     } catch (error) {
       handleAuthError(error, "Google Sign-In");
     } finally {
@@ -261,7 +300,7 @@ export default function LoginPage() {
           <Separator className="my-6" />
           <Button variant="outline" className="w-full font-semibold py-3 text-base" onClick={handleGoogleLogin} disabled={isLoading || isGoogleLoading}>
             {isGoogleLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Image src="/google-logo.svg" alt="Google logo" width={20} height={20} className="mr-2" data-ai-hint="google logo"/>}
-            Sign in with Google
+            Sign in with Google (as User)
           </Button>
           <div className="mt-6 text-center text-sm">
             Don't have an account?{" "}
@@ -279,3 +318,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
