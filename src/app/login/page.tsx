@@ -5,11 +5,11 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { UserRound, ShieldCheck, LogIn, Building2, Loader2 } from "lucide-react"; // Added Loader2
+import { UserRound, ShieldCheck, LogIn, Building2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { signInWithEmailAndPassword, signInWithPopup, User } from "firebase/auth"; // Firebase imports
-import { auth, googleAuthProvider } from "@/lib/firebase/config"; // Firebase config
+import { signInWithEmailAndPassword, signInWithPopup, User } from "firebase/auth";
+import { auth, googleAuthProvider } from "@/lib/firebase/config";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -56,7 +56,6 @@ export default function LoginPage() {
   });
 
   const handleLoginSuccess = (user: User, role: "user" | "admin") => {
-    // You might want to store user info or token here (e.g., in context or state management)
     console.log("Logged in user:", user);
     toast({
       title: "Login Successful",
@@ -70,12 +69,13 @@ export default function LoginPage() {
   };
 
   const handleLoginError = (error: any) => {
-    console.error("Login error:", error);
+    console.error("Login error details:", error); // Log the full error object
     let errorMessage = "An unexpected error occurred. Please try again.";
     if (error.code) {
       switch (error.code) {
         case "auth/user-not-found":
         case "auth/wrong-password":
+        case "auth/invalid-credential": // Common for wrong email/password
           errorMessage = "Invalid email or password.";
           break;
         case "auth/invalid-email":
@@ -90,8 +90,11 @@ export default function LoginPage() {
         case "auth/network-request-failed":
             errorMessage = "Network error. Please check your internet connection.";
             break;
+        case "auth/configuration-not-found":
+             errorMessage = "Firebase Authentication configuration error. Please check Firebase project settings. (auth/configuration-not-found)";
+             break;
         default:
-          errorMessage = error.message || "Login failed. Please try again.";
+          errorMessage = error.message || `Login failed: ${error.code || 'Unknown error'}. Please try again.`;
       }
     }
     toast({
@@ -102,11 +105,8 @@ export default function LoginPage() {
   };
 
   async function onSubmit(data: LoginFormValues) {
-    if (!auth) {
-        toast({ title: "Firebase Error", description: "Firebase is not configured. Please check environment variables.", variant: "destructive" });
-        return;
-    }
     setIsLoading(true);
+    console.log("Attempting Firebase Email/Password Sign In with config:", auth.app.options); // Debug log
     try {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
       handleLoginSuccess(userCredential.user, data.role);
@@ -118,14 +118,11 @@ export default function LoginPage() {
   }
 
   async function handleGoogleLogin() {
-    if (!auth || !googleAuthProvider) {
-        toast({ title: "Firebase Error", description: "Firebase is not configured for Google Sign-In. Please check environment variables.", variant: "destructive" });
-        return;
-    }
     setIsGoogleLoading(true);
+    console.log("Attempting Firebase Google Sign In with config:", auth.app.options); // Debug log for Google sign-in
     try {
       const userCredential = await signInWithPopup(auth, googleAuthProvider);
-      const selectedRole = form.getValues("role"); // Role selection still applies
+      const selectedRole = form.getValues("role");
       handleLoginSuccess(userCredential.user, selectedRole);
     } catch (error) {
       handleLoginError(error);
@@ -221,7 +218,7 @@ export default function LoginPage() {
           </Form>
           <Separator className="my-6" />
           <Button variant="outline" className="w-full font-semibold py-3 text-base" onClick={handleGoogleLogin} disabled={isLoading || isGoogleLoading}>
-            {isGoogleLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Image src="/google-logo.svg" alt="Google logo" width={20} height={20} className="mr-2" data-ai-hint="google logo" />}
+            {isGoogleLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Image src="/google-logo.svg" alt="Google logo" width={20} height={20} className="mr-2" data-ai-hint="google logo"/>}
             Sign in with Google
           </Button>
         </CardContent>
