@@ -3,7 +3,7 @@ import { initializeApp, getApps, getApp, type FirebaseOptions } from "firebase/a
 import { getAuth, GoogleAuthProvider } from "firebase/auth"; // Added GoogleAuthProvider
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, type Analytics } from "firebase/analytics"; // Import Analytics type
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -23,6 +23,15 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const googleAuthProvider = new GoogleAuthProvider();
-const analytics = getAnalytics(app);
+
+let analytics: Analytics | null = null;
+
+if (typeof window !== 'undefined') {
+  if (app.name && typeof window !== undefined) {
+     analytics = getAnalytics(app);
+  }
+}
+
 
 export { app, auth, db, storage, googleAuthProvider, analytics, firebaseConfig };
+
