@@ -1,17 +1,43 @@
 
+"use client"; // Add "use client" for hooks
+
+import * as React from "react"; // Import React
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { FileText, Files, UserCircle2 } from "lucide-react"; // Changed UploadCloud to Files
+import { FileText, Files, UserCircle2 } from "lucide-react";
 import Link from "next/link";
+import { onAuthStateChanged, User } from "firebase/auth"; // Import User type and onAuthStateChanged
+import { auth } from "@/lib/firebase/config"; // Import auth instance
+import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
 
 export default function UserDashboardPage() {
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const welcomeMessage = isLoading 
+    ? <Skeleton className="h-6 w-3/4" />
+    : currentUser?.displayName 
+      ? `Welcome back, ${currentUser.displayName}!`
+      : "Welcome to your Sathi College Portal.";
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">User Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome to your Sathi College Portal. Manage your documents and view form statuses.
-        </p>
+        {isLoading ? (
+          <Skeleton className="h-5 w-1/2" />
+        ) : (
+          <p className="text-muted-foreground">
+            {welcomeMessage} Manage your documents and view form statuses.
+          </p>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -24,9 +50,9 @@ export default function UserDashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              View and manage your personal information. (Coming Soon)
+              View and manage your personal information.
             </p>
-            <Link href="#" className="text-sm font-medium text-primary hover:underline text-muted-foreground/50 cursor-not-allowed" aria-disabled="true" tabIndex={-1}>
+            <Link href="/user/dashboard/profile" className="text-sm font-medium text-primary hover:underline">
               View Profile &rarr;
             </Link>
           </CardContent>

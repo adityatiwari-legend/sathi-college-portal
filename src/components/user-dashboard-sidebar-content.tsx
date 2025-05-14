@@ -10,7 +10,7 @@ import {
   UserCircle2,
   LogOut,
   Building2,
-  Files, // Changed UploadCloud to Files
+  Files, 
 } from "lucide-react";
 
 import {
@@ -23,6 +23,9 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { onAuthStateChanged, User } from "firebase/auth"; // Import User type and onAuthStateChanged
+import { auth } from "@/lib/firebase/config"; // Import auth instance
+import * as React from "react"; // Import React for useEffect and useState
 
 interface NavItemProps {
   href: string;
@@ -62,17 +65,35 @@ const NavItem = ({ href, icon, label, tooltip, disabled = false }: NavItemProps)
 
 const navItems: NavItemProps[] = [
   { href: "/user/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "User Dashboard" },
+  { href: "/user/dashboard/profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile" }, 
   { href: "/user/dashboard/documents", icon: <Files />, label: "Shared Documents", tooltip: "View Shared Documents" },
-  { href: "/user/dashboard/my-profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile (Coming Soon)", disabled: true }, 
   { href: "/user/dashboard/my-forms", icon: <FileText />, label: "My Forms", tooltip: "View Your Submitted Forms (Coming Soon)", disabled: true }, 
 ];
 
 export function UserDashboardSidebarContent() {
-  // Placeholder user data
-  const userName = "User";
-  const userEmail = "user@example.com";
-  const userAvatar = "https://picsum.photos/id/338/200/200"; 
-  const avatarFallback = "US";
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const userName = currentUser?.displayName || "User";
+  const userEmail = currentUser?.email || "user@example.com";
+  const userAvatar = currentUser?.photoURL || "https://placehold.co/200x200.png"; 
+  
+  const getAvatarFallback = (name?: string | null) => {
+    if (!name) return "U";
+    const parts = name.split(" ");
+    if (parts.length > 1 && parts[0] && parts[1]) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    if (name.length >=2) return name.substring(0, 2).toUpperCase();
+    return name.substring(0,1).toUpperCase() || "U";
+  };
+  const avatarFallback = getAvatarFallback(userName);
 
 
   return (
@@ -99,10 +120,10 @@ export function UserDashboardSidebarContent() {
             <AvatarFallback>{avatarFallback}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col truncate">
-            <span className="text-sm font-medium text-sidebar-foreground truncate">
+            <span className="text-sm font-medium text-sidebar-foreground truncate" title={userName}>
               {userName}
             </span>
-            <span className="text-xs text-sidebar-foreground/70 truncate">
+            <span className="text-xs text-sidebar-foreground/70 truncate" title={userEmail}>
               {userEmail}
             </span>
           </div>
