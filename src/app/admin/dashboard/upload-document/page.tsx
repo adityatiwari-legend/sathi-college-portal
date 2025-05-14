@@ -86,8 +86,17 @@ export default function AdminUploadDocumentPage() {
       setUploadProgress(100); 
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Upload failed with status: ${response.status}`);
+        const contentType = response.headers.get("content-type");
+        let errorToThrow;
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          errorToThrow = new Error(errorData.error || `Upload failed with status: ${response.status}`);
+        } else {
+          const errorText = await response.text();
+          console.error("Server returned non-JSON error. Response text:", errorText);
+          errorToThrow = new Error(`Upload failed: Server returned status ${response.status}. Response was not JSON. Check console for details.`);
+        }
+        throw errorToThrow;
       }
 
       const result = await response.json();
@@ -106,7 +115,7 @@ export default function AdminUploadDocumentPage() {
       }
 
     } catch (error: any) {
-      console.error("Upload error:", error);
+      console.error("Upload error details:", error);
       let errorMessage = "An unexpected error occurred during upload.";
       if (error.message) {
         errorMessage = error.message;
