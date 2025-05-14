@@ -167,8 +167,10 @@ export function VoiceSearchBar({
             <Input
                 type="text"
                 placeholder={placeholder}
+                value={searchTerm} // Ensure controlled from the start
                 className="pl-10 pr-16 py-2 h-10 text-sm rounded-lg shadow-sm w-full"
                 disabled
+                readOnly // Good practice for controlled, disabled input
             />
             <Button
                 variant="outline"
