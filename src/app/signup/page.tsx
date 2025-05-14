@@ -48,23 +48,27 @@ export default function SignupPage() {
   const [isCheckingAuth, setIsCheckingAuth] = React.useState(true);
 
   React.useEffect(() => {
-    console.log("SignupPage: useEffect for onAuthStateChanged running.");
+    console.log("SignupPage: useEffect for onAuthStateChanged running to check initial auth state.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("SignupPage: onAuthStateChanged triggered. User:", user ? user.uid : 'null');
+      // We still want to know if a user session exists for debugging or potential future logic,
+      // but we won't automatically redirect from this page based on it.
       if (user) {
-        console.log("SignupPage: User found, redirecting to /user/dashboard.");
-        router.push('/user/dashboard');
-        setIsCheckingAuth(false); 
+        console.log("SignupPage: onAuthStateChanged - An active user session exists:", user.uid);
       } else {
-        console.log("SignupPage: No user found, setting isCheckingAuth to false to show form.");
-        setIsCheckingAuth(false);
+        console.log("SignupPage: onAuthStateChanged - No active user session found.");
       }
+      // Regardless of user state, we stop checking and allow the form to render.
+      // The actual signup action is initiated by user interaction.
+      setIsCheckingAuth(false);
+      console.log("SignupPage: isCheckingAuth set to false, form should be visible.");
     });
+
+    // Cleanup subscription on component unmount
     return () => {
       console.log("SignupPage: Cleaning up onAuthStateChanged subscription.");
       unsubscribe();
     };
-  }, [router]);
+  }, [router]); // Keep router in dependency array for same reasons as LoginPage.
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupFormSchema),
@@ -83,7 +87,7 @@ export default function SignupPage() {
         title: "Sign Up Successful!",
         description: "Your account has been created. Please login to continue.",
       });
-      router.push('/login');
+      router.push('/login'); // Redirect to login page after successful signup
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred. Please try again.";
       if (error.code) {

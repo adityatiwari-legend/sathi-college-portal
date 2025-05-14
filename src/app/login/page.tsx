@@ -47,24 +47,28 @@ export default function LoginPage() {
   const [isCheckingAuth, setIsCheckingAuth] = React.useState(true);
 
   React.useEffect(() => {
-    console.log("LoginPage: useEffect for onAuthStateChanged running.");
+    console.log("LoginPage: useEffect for onAuthStateChanged running to check initial auth state.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("LoginPage: onAuthStateChanged triggered. User:", user ? user.uid : 'null');
+      // We still want to know if a user session exists for debugging or potential future logic,
+      // but we won't automatically redirect from this page based on it.
       if (user) {
-        console.log("LoginPage: User found, redirecting to /user/dashboard.");
-        router.push('/user/dashboard');
-        setIsCheckingAuth(false); 
+        console.log("LoginPage: onAuthStateChanged - An active user session exists:", user.uid);
       } else {
-        console.log("LoginPage: No user found, setting isCheckingAuth to false to show form.");
-        setIsCheckingAuth(false);
+        console.log("LoginPage: onAuthStateChanged - No active user session found.");
       }
+      // Regardless of user state, we stop checking and allow the form to render.
+      // The actual login action is initiated by user interaction.
+      setIsCheckingAuth(false);
+      console.log("LoginPage: isCheckingAuth set to false, form should be visible.");
     });
+
+    // Cleanup subscription on component unmount
     return () => {
       console.log("LoginPage: Cleaning up onAuthStateChanged subscription.");
       unsubscribe();
     };
-  }, [router]);
-
+  }, [router]); // Keep router in dependency array if other parts of the effect might use it,
+                // or if router instance changes should trigger re-subscription.
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
@@ -112,7 +116,7 @@ export default function LoginPage() {
 
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
-    console.log("Attempting Firebase Email/Password Sign In with config:", auth.app.options);
+    console.log("Attempting Firebase Email/Password Sign In with config:", firebaseConfig); // Use firebaseConfig directly if imported
     try {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
       console.log("Logged in user:", userCredential.user.uid);
@@ -120,7 +124,7 @@ export default function LoginPage() {
         title: "Login Successful",
         description: `Welcome back! Redirecting to your dashboard.`,
       });
-      router.push('/user/dashboard');
+      router.push('/user/dashboard'); // Redirect after successful login
     } catch (error) {
       handleAuthError(error, "Login");
     } finally {
@@ -130,7 +134,7 @@ export default function LoginPage() {
 
   async function handleGoogleLogin() {
     setIsGoogleLoading(true);
-    console.log("Attempting Firebase Google Sign In with config:", auth.app.options);
+    console.log("Attempting Firebase Google Sign In with config:", firebaseConfig); // Use firebaseConfig directly if imported
     try {
       const userCredential = await signInWithPopup(auth, googleAuthProvider);
       console.log("Logged in user (Google):", userCredential.user.uid);
@@ -138,7 +142,7 @@ export default function LoginPage() {
         title: "Login Successful",
         description: `Welcome! Redirecting to your dashboard.`,
       });
-      router.push('/user/dashboard');
+      router.push('/user/dashboard'); // Redirect after successful login
     } catch (error) {
       handleAuthError(error, "Google Sign-In");
     } finally {
