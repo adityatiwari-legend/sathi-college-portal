@@ -63,7 +63,6 @@ export default function AdminUploadDocumentPage() {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
-      // Add a field to indicate the uploader context if the API needs it
       formData.append("uploaderContext", "admin");
 
 
@@ -97,6 +96,15 @@ export default function AdminUploadDocumentPage() {
         title: "Upload Successful",
         description: `${selectedFile.name} has been uploaded.`,
       });
+      
+      // Clear selection after successful upload for better UX
+      setSelectedFile(null);
+      setFileName(null);
+      setUploadProgress(0);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""; // Resets the file input element
+      }
+
     } catch (error: any) {
       console.error("Upload error:", error);
       let errorMessage = "An unexpected error occurred during upload.";
@@ -112,6 +120,7 @@ export default function AdminUploadDocumentPage() {
       });
     } finally {
       setIsUploading(false);
+      // Don't reset uploadProgress to 0 here if you want to show 100% on success until next action
     }
   };
 
@@ -245,3 +254,4 @@ export default function AdminUploadDocumentPage() {
     </div>
   );
 }
+
