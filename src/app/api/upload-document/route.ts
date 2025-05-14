@@ -1,10 +1,12 @@
+
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb, adminStorage } from '@/lib/firebase/admin';
+import adminInstance, { adminDb, adminStorage } from '@/lib/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
-  if (!adminDb || !adminStorage) {
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized properly (DB or Storage missing).' }, { status: 500 });
+  if (!adminInstance || !adminDb || !adminStorage) {
+    console.error('Firebase Admin SDK not initialized properly. adminInstance, adminDb, or adminStorage is null/undefined.');
+    return NextResponse.json({ error: 'Firebase Admin SDK not initialized properly.' }, { status: 500 });
   }
 
   try {
@@ -62,9 +64,10 @@ export async function POST(request: NextRequest) {
       downloadUrl: url,
     });
   } catch (error) {
-    console.error('Error processing file upload:', error);
+    console.error('Error processing file upload (API Route):', error);
     // Check if error is an instance of Error to access message property safely
-    const errorMessage = error instanceof Error ? error.message : 'Failed to upload file';
+    const errorMessage = error instanceof Error ? error.message : 'Failed to upload file due to an internal server error.';
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
+
