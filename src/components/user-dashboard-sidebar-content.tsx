@@ -10,7 +10,7 @@ import {
   UserCircle2,
   LogOut,
   Building2,
-  UploadCloud,
+  Files, // Changed UploadCloud to Files
 } from "lucide-react";
 
 import {
@@ -29,11 +29,23 @@ interface NavItemProps {
   icon: ReactNode;
   label: string;
   tooltip: string;
+  disabled?: boolean;
 }
 
-const NavItem = ({ href, icon, label, tooltip }: NavItemProps) => {
+const NavItem = ({ href, icon, label, tooltip, disabled = false }: NavItemProps) => {
   const pathname = usePathname();
-  const isActive = pathname === href || (href !== '/user/dashboard' && pathname.startsWith(href));
+  const isActive = !disabled && (pathname === href || (href !== '/user/dashboard' && pathname.startsWith(href)));
+
+  if (disabled) {
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton tooltip={tooltip} isActive={false} disabled className="cursor-not-allowed opacity-60">
+          {icon}
+          <span>{label}</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  }
 
   return (
     <SidebarMenuItem>
@@ -50,13 +62,13 @@ const NavItem = ({ href, icon, label, tooltip }: NavItemProps) => {
 
 const navItems: NavItemProps[] = [
   { href: "/user/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "User Dashboard" },
-  { href: "/user/dashboard/upload-document", icon: <UploadCloud />, label: "Upload Document", tooltip: "Upload Your Documents" },
-  { href: "/user/dashboard/my-profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile (Coming Soon)" }, 
-  { href: "/user/dashboard/my-forms", icon: <FileText />, label: "My Forms", tooltip: "View Your Submitted Forms (Coming Soon)" }, 
+  { href: "/user/dashboard/documents", icon: <Files />, label: "Shared Documents", tooltip: "View Shared Documents" },
+  { href: "/user/dashboard/my-profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile (Coming Soon)", disabled: true }, 
+  { href: "/user/dashboard/my-forms", icon: <FileText />, label: "My Forms", tooltip: "View Your Submitted Forms (Coming Soon)", disabled: true }, 
 ];
 
 export function UserDashboardSidebarContent() {
-  // Placeholder user data as Firebase auth is removed from login
+  // Placeholder user data
   const userName = "User";
   const userEmail = "user@example.com";
   const userAvatar = "https://picsum.photos/id/338/200/200"; 
@@ -75,20 +87,9 @@ export function UserDashboardSidebarContent() {
       </SidebarHeader>
       <SidebarContent className="flex-grow">
         <SidebarMenu>
-          {navItems.map((item) => {
-            const isComingSoon = item.href.includes("my-profile") || item.href.includes("my-forms");
-            if (isComingSoon) {
-              return (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton tooltip={item.tooltip} isActive={false} disabled className="cursor-not-allowed opacity-60">
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
-            }
-            return <NavItem key={item.href} {...item} />;
-          })}
+          {navItems.map((item) => (
+            <NavItem key={item.href} {...item} />
+          ))}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="p-4 border-t border-sidebar-border">
@@ -106,7 +107,6 @@ export function UserDashboardSidebarContent() {
             </span>
           </div>
           <Button variant="ghost" size="icon" className="ml-auto text-sidebar-foreground/70 hover:text-sidebar-foreground" asChild>
-            {/* LogOut still points to /login, which is now a simulated login */}
             <Link href="/login">
               <LogOut className="h-5 w-5" />
             </Link>
@@ -116,5 +116,3 @@ export function UserDashboardSidebarContent() {
     </>
   );
 }
-
-// Removed: import { auth } from "@/lib/firebase/config";

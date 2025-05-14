@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, UploadCloud, UserCircle2 } from "lucide-react";
+import { FileText, Files, UserCircle2 } from "lucide-react"; // Changed UploadCloud to Files
 import Link from "next/link";
 
 export default function UserDashboardPage() {
@@ -52,16 +52,16 @@ export default function UserDashboardPage() {
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-medium">
-              Upload Documents
+              Shared Documents
             </CardTitle>
-            <UploadCloud className="h-6 w-6 text-accent" />
+            <Files className="h-6 w-6 text-accent" />
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Upload necessary documents for your applications or records.
+              Access documents shared by the administration.
             </p>
-            <Link href="/user/dashboard/upload-document" className="text-sm font-medium text-primary hover:underline">
-              Upload Now &rarr;
+            <Link href="/user/dashboard/documents" className="text-sm font-medium text-primary hover:underline">
+              View Documents &rarr;
             </Link>
           </CardContent>
         </Card>
