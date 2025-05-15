@@ -6,8 +6,8 @@ import { FieldValue } from 'firebase-admin/firestore';
 export async function POST(request: NextRequest) {
   console.log('/api/upload-document: POST request received.');
 
-  if (!adminInstance || !adminDb || !adminStorage) {
-    console.error('/api/upload-document: Firebase Admin SDK not initialized properly. adminInstance, adminDb, or adminStorage is null/undefined.');
+  if (!adminInstance || !adminDb || !adminStorage || !adminStorage.app) {
+    console.error('/api/upload-document: Firebase Admin SDK not initialized properly or storage component missing. adminInstance, adminDb, or adminStorage (or adminStorage.app) is null/undefined.');
     return NextResponse.json({ error: 'Firebase Admin SDK not initialized properly. Check server logs for details.' }, { status: 500 });
   }
   console.log('/api/upload-document: Firebase Admin SDK instances seem available.');
@@ -23,8 +23,13 @@ export async function POST(request: NextRequest) {
     }
     console.log(`/api/upload-document: File received: ${file.name}, size: ${file.size}, type: ${file.type}, context: ${uploaderContext}`);
 
-    const bucket = adminStorage.bucket();
-    console.log(`/api/upload-document: Using storage bucket: ${bucket.name}`);
+    // Determine the bucket name to use
+    // Prefer environment variable, then hardcoded, then default from initialized app.
+    const explicitBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "mysaathiapp.firebasestorage.app";
+    console.log(`/api/upload-document: Attempting to use explicit storage bucket: ${explicitBucketName}`);
+    
+    const bucket = adminStorage.bucket(explicitBucketName); // Explicitly specify the bucket name
+    console.log(`/api/upload-document: Successfully got bucket object for: ${bucket.name}`);
     
     const basePath = uploaderContext === 'admin' ? 'admin_uploads' : 'user_uploads';
     const fileNameInStorage = `${basePath}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
@@ -81,6 +86,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('/api/upload-document: Critical error in POST handler:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to upload file due to an unexpected internal server error.';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    
+    // Log the actual error object for more details
+    if (error instanceof Error && error.cause) {
+      console.error('/api/upload-document: Underlying cause:', error.cause);
+    }
+    
+    return NextResponse.json({ error: errorMessage, details: error instanceof Error ? error.stack : "No stack available" }, { status: 500 });
   }
 }
