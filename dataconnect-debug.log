@@ -1,40 +1,13 @@
-E0515 06:35:27.659305     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:35:27.663077     498 watch.go:76] watchAllDir unable to walk dir `/home/user/studio/dataconnect`: on path "/home/user/studio/dataconnect" (DirEntry: <nil>): lstat /home/user/studio/dataconnect: no such file or directory
-I0515 06:35:27.675428     498 dev.go:95] Listening on address (HTTP + gRPC): 127.0.0.1:50001
-E0515 06:35:37.668706     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:35:47.672729     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:35:57.663646     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:36:07.673445     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:36:17.663392     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:36:27.664091     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:36:37.672859     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:36:47.671717     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:36:57.663999     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:37:07.673033     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:37:17.672845     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:37:27.664321     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:37:27.664563     498 watch.go:76] watchAllDir unable to walk dir `/home/user/studio/dataconnect`: on path "/home/user/studio/dataconnect" (DirEntry: <nil>): lstat /home/user/studio/dataconnect: no such file or directory
-E0515 06:37:37.663847     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:37:47.672747     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:37:57.664407     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:38:07.671796     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:38:17.672750     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:38:27.664161     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:38:37.672759     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:38:47.672783     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-E0515 06:38:57.663777     498 load.go:23] Could not load config from "/home/user/studio/dataconnect": could not find dataconnect.yaml in `/home/user/studio/dataconnect`
-I0515 06:39:07.732399     498 load.go:37] Reloading schema and connectors...
-I0515 06:39:07.994725     498 control.go:73] [/emulator/y 53fe] UpdateResources(): done
+I0515 07:40:51.146694   14474 load.go:37] Reloading schema and connectors...
+I0515 07:40:51.221836   14474 control.go:73] [/emulator/y bcaf] UpdateResources(): done
 Schema: sources: schema/schema.gql [2088B] 
 Connector "default": sources: connector/mutations.gql [1233B] connector/queries.gql [1802B] 
-I0515 06:39:08.069733     498 collector.go:107] schema extensions wrote into "/home/user/studio/dataconnect/.dataconnect/schema"
+I0515 07:40:51.289387   14474 codegen.go:82] [connector "default" javascriptSdk] Generating sources into "/home/user/studio/dataconnect-generated/js/default-connector"
+I0515 07:40:51.300890   14474 collector.go:107] schema extensions wrote into "/home/user/studio/dataconnect/.dataconnect/schema"
 Generated sources: prelude.gql [71117B] 
-I0515 06:39:08.069817     498 load.go:115] Finished reloading
-I0515 06:39:32.828463     498 load.go:37] Reloading schema and connectors...
-I0515 06:39:32.895044     498 codegen.go:82] [connector "default" javascriptSdk] Generating sources into "/home/user/studio/dataconnect-generated/js/default-connector"
-I0515 06:39:33.070047     498 collector.go:107] schema extensions wrote into "/home/user/studio/dataconnect/.dataconnect/schema"
-Generated sources: prelude.gql [71117B] 
-I0515 06:39:33.078486     498 collector.go:107] connector "default" javascriptSdk wrote into "/home/user/studio/dataconnect-generated/js/default-connector"
-Generated sources: react/package.json [468B] react/esm/package.json [17B] react/esm/index.esm.js [0B] react/README.md [5417B] index.cjs.js [138B] react/index.d.ts [228B] esm/package.json [17B] package.json [860B] README.md [2774B] react/index.cjs.js [0B] index.d.ts [246B] esm/index.esm.js [103B] 
-I0515 06:39:33.089333     498 installsdk.go:80] Running command: /usr/bin/npm install file:dataconnect-generated/js/default-connector
-I0515 06:39:52.491983     498 load.go:115] Finished reloading
+I0515 07:40:51.304633   14474 collector.go:107] connector "default" javascriptSdk wrote into "/home/user/studio/dataconnect-generated/js/default-connector"
+Generated sources: esm/index.esm.js [103B] esm/package.json [17B] index.cjs.js [138B] package.json [860B] README.md [2774B] react/index.d.ts [228B] react/package.json [468B] index.d.ts [246B] react/README.md [5417B] react/esm/package.json [17B] react/esm/index.esm.js [0B] react/index.cjs.js [0B] 
+I0515 07:40:51.327884   14474 installsdk.go:49] Package @firebasegen/default-connector is already installed. Skipping installation
+I0515 07:40:51.327938   14474 load.go:115] Finished reloading
+I0515 07:40:51.328752   14474 dev.go:95] Listening on address (HTTP + gRPC): 127.0.0.1:50002
+I0515 07:40:51.399169   14474 engine.go:170] [/emulator/y bcaf] ExecuteGraphqlRead IntrospectionQuery: succeeded. 

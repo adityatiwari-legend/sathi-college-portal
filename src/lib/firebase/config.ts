@@ -9,10 +9,10 @@ import { getDatabase } from "firebase/database";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig: FirebaseOptions = {
-  apiKey: "grxzbmBOkaUqQlgELbIDGt5fF4S23AOTCgXHKNOu",
+const firebaseConfig = {
+  apiKey: "AIzaSyA6s2CS7pbJdj3dYE0qkhOvCh-94BOIc84",
   authDomain: "mysaathiapp.firebaseapp.com",
-  databaseURL: "https://mysaathiapp-default-rtdb.firebaseio.com/", // Added trailing slash
+  databaseURL: "https://mysaathiapp-default-rtdb.firebaseio.com",
   projectId: "mysaathiapp",
   storageBucket: "mysaathiapp.firebasestorage.app",
   messagingSenderId: "986850959060",

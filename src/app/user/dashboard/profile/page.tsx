@@ -9,17 +9,17 @@ import Link from "next/link";
 import { ArrowLeft, Save, UserCircle2, Image as ImageIcon, Loader2, AlertTriangle, CheckCircle, Palette } from "lucide-react";
 import { onAuthStateChanged, updateProfile, User } from "firebase/auth";
 import { auth, rtdb } from "@/lib/firebase/config"; // Import rtdb
-import { ref, set, get, child, onValue } from "firebase/database"; // Import RTDB functions
+import { ref, set, get, child } from "firebase/database"; // Import RTDB functions
 
 import { Button } from "@/components/ui/button";
 import {
   Form,
-  FormControl,
+  // FormControl, // No longer needed for theme radio
   FormField,
-  FormItem,
-  FormLabel,
+  // FormItem, // No longer needed for theme radio
+  // FormLabel, // No longer needed for theme radio
   FormMessage,
-} from "@/components/ui/form";
+} from "@/components/ui/form"; // Keep for main form
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label"; // Import plain Label
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -287,41 +288,35 @@ export default function UserProfilePage() {
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Address</FormLabel>
-                    <FormControl>
-                      <Input {...field} readOnly disabled className="bg-muted/50 cursor-not-allowed" />
-                    </FormControl>
+                  <div className="space-y-2"> {/* Replaced FormItem */}
+                    <Label htmlFor={field.name}>Email Address</Label> {/* Replaced FormLabel */}
+                    <Input {...field} id={field.name} readOnly disabled className="bg-muted/50 cursor-not-allowed" /> {/* Replaced FormControl with Input */}
                     <FormMessage />
-                  </FormItem>
+                  </div>
                 )}
               />
               <FormField
                 control={form.control}
                 name="displayName"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Display Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Your Name" {...field} disabled={isSubmittingProfile || isSavingTheme}/>
-                    </FormControl>
+                   <div className="space-y-2"> {/* Replaced FormItem */}
+                    <Label htmlFor={field.name}>Display Name</Label> {/* Replaced FormLabel */}
+                    <Input placeholder="Your Name" {...field} id={field.name} disabled={isSubmittingProfile || isSavingTheme}/> {/* Replaced FormControl with Input */}
                     <FormMessage />
-                  </FormItem>
+                  </div>
                 )}
               />
               <FormField
                 control={form.control}
                 name="photoURL"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-1">
+                   <div className="space-y-2"> {/* Replaced FormItem */}
+                    <Label htmlFor={field.name} className="flex items-center gap-1"> {/* Replaced FormLabel */}
                         <ImageIcon className="h-4 w-4 text-muted-foreground" /> Profile Photo URL
-                    </FormLabel>
-                    <FormControl>
-                      <Input type="url" placeholder="https://example.com/your-photo.jpg" {...field} disabled={isSubmittingProfile || isSavingTheme}/>
-                    </FormControl>
+                    </Label>
+                    <Input type="url" placeholder="https://example.com/your-photo.jpg" {...field} id={field.name} disabled={isSubmittingProfile || isSavingTheme}/> {/* Replaced FormControl with Input */}
                     <FormMessage />
-                  </FormItem>
+                  </div>
                 )}
               />
             </CardContent>
@@ -354,30 +349,24 @@ export default function UserProfilePage() {
                 className="flex flex-col space-y-1 sm:flex-row sm:space-y-0 sm:space-x-4"
                 disabled={isSubmittingProfile || isSavingTheme}
               >
-                <FormItem className="flex items-center space-x-2 space-y-0">
-                  <FormControl>
-                    <RadioGroupItem value="light" id="theme-light" />
-                  </FormControl>
-                  <FormLabel htmlFor="theme-light" className="font-normal">
+                <div className="flex items-center space-x-2"> {/* Replaced FormItem */}
+                  <RadioGroupItem value="light" id="theme-light" /> {/* Removed FormControl wrapper */}
+                  <Label htmlFor="theme-light" className="font-normal"> {/* Used plain Label */}
                     Light
-                  </FormLabel>
-                </FormItem>
-                <FormItem className="flex items-center space-x-2 space-y-0">
-                  <FormControl>
-                    <RadioGroupItem value="dark" id="theme-dark" />
-                  </FormControl>
-                  <FormLabel htmlFor="theme-dark" className="font-normal">
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2"> {/* Replaced FormItem */}
+                  <RadioGroupItem value="dark" id="theme-dark" /> {/* Removed FormControl wrapper */}
+                  <Label htmlFor="theme-dark" className="font-normal"> {/* Used plain Label */}
                     Dark
-                  </FormLabel>
-                </FormItem>
-                <FormItem className="flex items-center space-x-2 space-y-0">
-                  <FormControl>
-                    <RadioGroupItem value="system" id="theme-system" />
-                  </FormControl>
-                  <FormLabel htmlFor="theme-system" className="font-normal">
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2"> {/* Replaced FormItem */}
+                  <RadioGroupItem value="system" id="theme-system" /> {/* Removed FormControl wrapper */}
+                  <Label htmlFor="theme-system" className="font-normal"> {/* Used plain Label */}
                     System
-                  </FormLabel>
-                </FormItem>
+                  </Label>
+                </div>
               </RadioGroup>
               {isSavingTheme && <p className="text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving theme...</p>}
         </CardContent>
@@ -386,6 +375,4 @@ export default function UserProfilePage() {
     </div>
   );
 }
-
-
     
