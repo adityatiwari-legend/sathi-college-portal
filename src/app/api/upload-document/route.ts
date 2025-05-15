@@ -23,8 +23,7 @@ export async function POST(request: NextRequest) {
     }
     console.log(`/api/upload-document: File received: ${file.name}, size: ${file.size}, type: ${file.type}, context: ${uploaderContext}`);
 
-    // Determine the bucket name to use
-    const explicitBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "mysaathiapp"; // Fallback to "mysaathiapp"
+    const explicitBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "mysaathiapp";
     console.log(`/api/upload-document: Attempting to use explicit storage bucket: ${explicitBucketName}`);
     
     const bucket = adminStorage.bucket(explicitBucketName);
@@ -82,22 +81,29 @@ export async function POST(request: NextRequest) {
       downloadUrl: url,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('/api/upload-document: Critical error in POST handler:', error);
+    
     let errorMessage = 'Failed to upload file due to an unexpected internal server error.';
-    if (error instanceof Error) {
+    let errorCode = 'UNKNOWN_ERROR';
+    let errorDetails = error instanceof Error ? error.stack : JSON.stringify(error, null, 2);
+
+    if (error.code && error.message) { // Check if it's a Firebase/GCP like error object
+        errorMessage = error.message;
+        errorCode = error.code;
+        console.error(`/api/upload-document: Firebase/GCP Error Code: ${error.code}, Message: ${error.message}`);
+    } else if (error instanceof Error) {
         errorMessage = error.message;
     }
     
-    // Log the actual error object for more details, especially if it's a structured Firebase/GCS error
-    if (typeof error === 'object' && error !== null && 'message' in error) {
-        // For structured errors (like Firebase/GCS errors which are often objects with message/code)
-        console.error('/api/upload-document: Error object:', JSON.stringify(error, null, 2));
-    }
-    if (error instanceof Error && error.cause) {
+    if (error.cause) {
       console.error('/api/upload-document: Underlying cause:', error.cause);
     }
     
-    return NextResponse.json({ error: errorMessage, details: error instanceof Error ? error.stack : JSON.stringify(error, null, 2) }, { status: 500 });
+    return NextResponse.json({ 
+      error: errorMessage, 
+      errorCode: errorCode,
+      details: errorDetails 
+    }, { status: 500 });
   }
 }
