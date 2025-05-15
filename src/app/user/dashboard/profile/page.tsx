@@ -9,17 +9,14 @@ import Link from "next/link";
 import { ArrowLeft, Save, UserCircle2, Image as ImageIcon, Loader2, AlertTriangle, CheckCircle, Palette } from "lucide-react";
 import { onAuthStateChanged, updateProfile, User } from "firebase/auth";
 import { auth, rtdb } from "@/lib/firebase/config"; // Import rtdb
-import { ref, set, get, child } from "firebase/database"; // Import RTDB functions
+import { ref, set, get } from "firebase/database"; // Import RTDB functions for get
 
 import { Button } from "@/components/ui/button";
 import {
   Form,
-  // FormControl, // No longer needed for theme radio
   FormField,
-  // FormItem, // No longer needed for theme radio
-  // FormLabel, // No longer needed for theme radio
   FormMessage,
-} from "@/components/ui/form"; // Keep for main form
+} from "@/components/ui/form"; 
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -31,14 +28,14 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label"; // Import plain Label
+import { Label } from "@/components/ui/label"; 
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const profileFormSchema = z.object({
   displayName: z.string().min(2, { message: "Display name must be at least 2 characters." }).max(50, { message: "Display name cannot exceed 50 characters." }).optional(),
   photoURL: z.string().url({ message: "Please enter a valid URL for the photo." }).optional().or(z.literal('')),
-  email: z.string().email().optional(), // Email is mostly for display
+  email: z.string().email().optional(), 
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -64,7 +61,7 @@ export default function UserProfilePage() {
   });
 
   React.useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => { // make async
       if (currentUser) {
         setUser(currentUser);
         form.reset({
@@ -75,23 +72,30 @@ export default function UserProfilePage() {
 
         // Fetch theme preference from RTDB
         if (rtdb) {
-          const themePrefRef = ref(rtdb, `userPreferences/${currentUser.uid}/theme`);
-          get(themePrefRef).then((snapshot) => {
+          setIsLoadingUser(true); // Keep loading until theme is also fetched
+          try {
+            const themePrefRef = ref(rtdb, `userPreferences/${currentUser.uid}/theme`);
+            const snapshot = await get(themePrefRef);
             if (snapshot.exists()) {
               setThemePreference(snapshot.val() as ThemePreference);
             } else {
               setThemePreference("system"); // Default if not found
             }
-          }).catch(error => {
+          } catch (error) {
             console.error("Error fetching theme preference:", error);
             toast({ title: "Error", description: "Could not load theme preference.", variant: "destructive" });
-          });
+            setThemePreference("system"); // Default on error
+          } finally {
+            setIsLoadingUser(false);
+          }
+        } else {
+           setIsLoadingUser(false); // RTDB not configured, stop loading
         }
 
       } else {
         setUser(null);
+        setIsLoadingUser(false);
       }
-      setIsLoadingUser(false);
     });
     return () => unsubscribeAuth();
   }, [form]);
@@ -111,12 +115,15 @@ export default function UserProfilePage() {
         displayName: data.displayName || null,
         photoURL: data.photoURL || null,
       });
-      setUser(auth.currentUser); 
-      form.reset({ 
-          displayName: auth.currentUser?.displayName || "",
-          photoURL: auth.currentUser?.photoURL || "",
-          email: auth.currentUser?.email || "",
-      });
+      // Optimistically update local user state if auth.currentUser is available
+      if(auth.currentUser) {
+        setUser(auth.currentUser); 
+        form.reset({ 
+            displayName: auth.currentUser?.displayName || "",
+            photoURL: auth.currentUser?.photoURL || "",
+            email: auth.currentUser?.email || "",
+        });
+      }
       setProfileSuccessMessage("Profile updated successfully!");
       toast({
         title: "Profile Updated",
@@ -137,11 +144,11 @@ export default function UserProfilePage() {
   
   const handleThemeChange = async (newTheme: ThemePreference) => {
     if (!user || !rtdb) {
-      toast({ title: "Error", description: "User not available or RTDB not configured.", variant: "destructive" });
+      toast({ title: "Error", description: "User not available or RTDB not configured for theme saving.", variant: "destructive" });
       return;
     }
     setIsSavingTheme(true);
-    setThemePreference(newTheme); // Optimistically update UI
+    setThemePreference(newTheme); 
     try {
       const themePrefRef = ref(rtdb, `userPreferences/${user.uid}/theme`);
       await set(themePrefRef, newTheme);
@@ -156,8 +163,6 @@ export default function UserProfilePage() {
         description: "Could not save your theme preference. Please try again.",
         variant: "destructive",
       });
-      // Revert optimistic update if save failed (optional, depends on desired UX)
-      // For simplicity, we're not reverting here. Fetch on load will correct it.
     } finally {
       setIsSavingTheme(false);
     }
@@ -288,9 +293,9 @@ export default function UserProfilePage() {
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                  <div className="space-y-2"> {/* Replaced FormItem */}
-                    <Label htmlFor={field.name}>Email Address</Label> {/* Replaced FormLabel */}
-                    <Input {...field} id={field.name} readOnly disabled className="bg-muted/50 cursor-not-allowed" /> {/* Replaced FormControl with Input */}
+                  <div className="space-y-2"> 
+                    <Label htmlFor={field.name}>Email Address</Label> 
+                    <Input {...field} id={field.name} readOnly disabled className="bg-muted/50 cursor-not-allowed" /> 
                     <FormMessage />
                   </div>
                 )}
@@ -299,9 +304,9 @@ export default function UserProfilePage() {
                 control={form.control}
                 name="displayName"
                 render={({ field }) => (
-                   <div className="space-y-2"> {/* Replaced FormItem */}
-                    <Label htmlFor={field.name}>Display Name</Label> {/* Replaced FormLabel */}
-                    <Input placeholder="Your Name" {...field} id={field.name} disabled={isSubmittingProfile || isSavingTheme}/> {/* Replaced FormControl with Input */}
+                   <div className="space-y-2"> 
+                    <Label htmlFor={field.name}>Display Name</Label> 
+                    <Input placeholder="Your Name" {...field} id={field.name} disabled={isSubmittingProfile || isSavingTheme}/> 
                     <FormMessage />
                   </div>
                 )}
@@ -310,11 +315,11 @@ export default function UserProfilePage() {
                 control={form.control}
                 name="photoURL"
                 render={({ field }) => (
-                   <div className="space-y-2"> {/* Replaced FormItem */}
-                    <Label htmlFor={field.name} className="flex items-center gap-1"> {/* Replaced FormLabel */}
+                   <div className="space-y-2"> 
+                    <Label htmlFor={field.name} className="flex items-center gap-1"> 
                         <ImageIcon className="h-4 w-4 text-muted-foreground" /> Profile Photo URL
                     </Label>
-                    <Input type="url" placeholder="https://example.com/your-photo.jpg" {...field} id={field.name} disabled={isSubmittingProfile || isSavingTheme}/> {/* Replaced FormControl with Input */}
+                    <Input type="url" placeholder="https://example.com/your-photo.jpg" {...field} id={field.name} disabled={isSubmittingProfile || isSavingTheme}/> 
                     <FormMessage />
                   </div>
                 )}
@@ -349,21 +354,21 @@ export default function UserProfilePage() {
                 className="flex flex-col space-y-1 sm:flex-row sm:space-y-0 sm:space-x-4"
                 disabled={isSubmittingProfile || isSavingTheme}
               >
-                <div className="flex items-center space-x-2"> {/* Replaced FormItem */}
-                  <RadioGroupItem value="light" id="theme-light" /> {/* Removed FormControl wrapper */}
-                  <Label htmlFor="theme-light" className="font-normal"> {/* Used plain Label */}
+                <div className="flex items-center space-x-2"> 
+                  <RadioGroupItem value="light" id="theme-light" /> 
+                  <Label htmlFor="theme-light" className="font-normal"> 
                     Light
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2"> {/* Replaced FormItem */}
-                  <RadioGroupItem value="dark" id="theme-dark" /> {/* Removed FormControl wrapper */}
-                  <Label htmlFor="theme-dark" className="font-normal"> {/* Used plain Label */}
+                <div className="flex items-center space-x-2"> 
+                  <RadioGroupItem value="dark" id="theme-dark" /> 
+                  <Label htmlFor="theme-dark" className="font-normal"> 
                     Dark
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2"> {/* Replaced FormItem */}
-                  <RadioGroupItem value="system" id="theme-system" /> {/* Removed FormControl wrapper */}
-                  <Label htmlFor="theme-system" className="font-normal"> {/* Used plain Label */}
+                <div className="flex items-center space-x-2"> 
+                  <RadioGroupItem value="system" id="theme-system" /> 
+                  <Label htmlFor="theme-system" className="font-normal"> 
                     System
                   </Label>
                 </div>

@@ -2,21 +2,32 @@
 "use client"; 
 
 import * as React from "react"; 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { FileText, Files, UserCircle2, BookOpen, Users as UsersIcon } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { FileText, Files, UserCircle2, BookOpen, Users as UsersIcon, Save, Download as DownloadIcon, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { onAuthStateChanged, User } from "firebase/auth"; 
-import { auth } from "@/lib/firebase/config"; 
+import { auth, rtdb } from "@/lib/firebase/config"; 
 import { Skeleton } from "@/components/ui/skeleton"; 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/hooks/use-toast";
+import { ref, set, get, child } from "firebase/database";
 
 export default function UserDashboardPage() {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [rtdbMessage, setRtdbMessage] = React.useState("");
+  const [loadedRtdbMessage, setLoadedRtdbMessage] = React.useState<string | null>(null);
+  const [isRtdbLoading, setIsRtdbLoading] = React.useState(false);
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setIsLoading(false);
+      if (user) {
+        // Optionally load initial RTDB message on auth change
+        handleLoadFromRtdb(user); 
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -26,6 +37,65 @@ export default function UserDashboardPage() {
     : currentUser?.displayName 
       ? `Welcome back, ${currentUser.displayName}!`
       : "Welcome to your Sathi College Portal.";
+
+  const handleSaveToRtdb = async () => {
+    if (!currentUser || !rtdb) {
+      toast({ title: "Error", description: "User not authenticated or RTDB not available.", variant: "destructive" });
+      return;
+    }
+    if (!rtdbMessage.trim()) {
+      toast({ title: "Input Error", description: "Message cannot be empty.", variant: "destructive"});
+      return;
+    }
+    setIsRtdbLoading(true);
+    try {
+      const userMessageRef = ref(rtdb, `userRtdbTestData/${currentUser.uid}/message`);
+      await set(userMessageRef, rtdbMessage);
+      toast({ title: "Success", description: "Message saved to Realtime Database!" });
+      setRtdbMessage(""); // Clear input after saving
+    } catch (error: any) {
+      console.error("Error saving to RTDB:", error);
+      toast({ title: "RTDB Error", description: error.message || "Failed to save message.", variant: "destructive" });
+    } finally {
+      setIsRtdbLoading(false);
+    }
+  };
+
+  const handleLoadFromRtdb = async (userToLoadFor?: User | null) => {
+    const targetUser = userToLoadFor || currentUser;
+    if (!targetUser || !rtdb) {
+      if (!userToLoadFor) { // Only show toast if manually triggered by button click
+          toast({ title: "Error", description: "User not authenticated or RTDB not available.", variant: "destructive" });
+      }
+      return;
+    }
+    setIsRtdbLoading(true);
+    setLoadedRtdbMessage(null); // Clear previous message
+    try {
+      const dbRef = ref(rtdb);
+      const snapshot = await get(child(dbRef, `userRtdbTestData/${targetUser.uid}/message`));
+      if (snapshot.exists()) {
+        setLoadedRtdbMessage(snapshot.val());
+        if (!userToLoadFor) { // Only show toast if manually triggered
+             toast({ title: "Success", description: "Message loaded from Realtime Database." });
+        }
+      } else {
+        setLoadedRtdbMessage("No message found in RTDB.");
+         if (!userToLoadFor) {
+            toast({ title: "Info", description: "No message found for your user in RTDB." });
+         }
+      }
+    } catch (error: any) {
+      console.error("Error loading from RTDB:", error);
+      setLoadedRtdbMessage("Failed to load message.");
+      if (!userToLoadFor) {
+        toast({ title: "RTDB Error", description: error.message || "Failed to load message.", variant: "destructive" });
+      }
+    } finally {
+      setIsRtdbLoading(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -129,6 +199,39 @@ export default function UserDashboardPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
+          <CardTitle>Realtime Database Test</CardTitle>
+          <CardDescription>
+            Test saving and loading a message to/from Firebase Realtime Database.
+            Ensure your RTDB rules allow reads/writes for authenticated users under `userRtdbTestData/{'{userId}'}/message`.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Enter a message"
+              value={rtdbMessage}
+              onChange={(e) => setRtdbMessage(e.target.value)}
+              disabled={isRtdbLoading}
+            />
+            <Button onClick={handleSaveToRtdb} disabled={isRtdbLoading || !rtdbMessage.trim()}>
+              {isRtdbLoading ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4" />}
+              Save
+            </Button>
+          </div>
+          <Button onClick={() => handleLoadFromRtdb()} variant="outline" disabled={isRtdbLoading}>
+            {isRtdbLoading ? <Loader2 className="animate-spin" /> : <DownloadIcon className="h-4 w-4" />}
+            Load Message
+          </Button>
+          {loadedRtdbMessage !== null && (
+            <p className="text-sm text-muted-foreground p-3 border rounded-md bg-secondary">
+              <strong>Loaded Message:</strong> {loadedRtdbMessage}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-lg">
+        <CardHeader>
           <CardTitle>Notifications & Alerts</CardTitle>
           <CardDescription>
             Stay updated with important announcements and deadlines.
@@ -143,3 +246,4 @@ export default function UserDashboardPage() {
     </div>
   );
 }
+
