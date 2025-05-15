@@ -11,6 +11,8 @@ import {
   LogOut,
   Building2,
   Files, 
+  BookOpen,
+  Users, // Added Users for admission forms
 } from "lucide-react";
 
 import {
@@ -20,12 +22,15 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,      // Added
+  SidebarMenuSubButton, // Added
+  SidebarMenuSubItem,   // Added
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { onAuthStateChanged, User } from "firebase/auth"; // Import User type and onAuthStateChanged
-import { auth } from "@/lib/firebase/config"; // Import auth instance
-import * as React from "react"; // Import React for useEffect and useState
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "@/lib/firebase/config";
+import * as React from "react";
 
 interface NavItemProps {
   href: string;
@@ -33,12 +38,49 @@ interface NavItemProps {
   label: string;
   tooltip: string;
   disabled?: boolean;
+  subItems?: NavItemProps[]; // Added for sub-menus
 }
 
-const NavItem = ({ href, icon, label, tooltip, disabled = false }: NavItemProps) => {
+const NavItem = ({ href, icon, label, tooltip, disabled = false, subItems }: NavItemProps) => {
   const pathname = usePathname();
-  const isActive = !disabled && (pathname === href || (href !== '/user/dashboard' && pathname.startsWith(href)));
+  const isActive = !disabled && (
+    pathname === href || 
+    (href !== '/user/dashboard' && pathname.startsWith(href)) ||
+    (subItems && subItems.some(sub => pathname.startsWith(sub.href)))
+  );
 
+  if (subItems && subItems.length > 0) {
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          tooltip={tooltip}
+          isActive={isActive}
+          disabled={disabled}
+          className={disabled ? "cursor-not-allowed opacity-60" : ""}
+        >
+          {icon}
+          <span>{label}</span>
+        </SidebarMenuButton>
+        <SidebarMenuSub>
+          {subItems.map((item) => (
+            <SidebarMenuSubItem key={item.href}>
+              <Link href={item.href} passHref legacyBehavior>
+                <SidebarMenuSubButton 
+                  isActive={pathname === item.href || pathname.startsWith(item.href)}
+                  disabled={item.disabled}
+                  className={item.disabled ? "cursor-not-allowed opacity-60" : ""}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </SidebarMenuSubButton>
+              </Link>
+            </SidebarMenuSubItem>
+          ))}
+        </SidebarMenuSub>
+      </SidebarMenuItem>
+    );
+  }
+  
   if (disabled) {
     return (
       <SidebarMenuItem>
@@ -49,6 +91,7 @@ const NavItem = ({ href, icon, label, tooltip, disabled = false }: NavItemProps)
       </SidebarMenuItem>
     );
   }
+
 
   return (
     <SidebarMenuItem>
@@ -66,8 +109,17 @@ const NavItem = ({ href, icon, label, tooltip, disabled = false }: NavItemProps)
 const navItems: NavItemProps[] = [
   { href: "/user/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "User Dashboard" },
   { href: "/user/dashboard/profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile" }, 
+  {
+    href: "/user/dashboard/forms", // Parent path for forms section
+    icon: <FileText />,
+    label: "Forms",
+    tooltip: "Access College Forms",
+    subItems: [
+      { href: "/user/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Form" },
+      { href: "/user/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Form" },
+    ],
+  },
   { href: "/user/dashboard/documents", icon: <Files />, label: "Shared Documents", tooltip: "View Shared Documents" },
-  { href: "/user/dashboard/my-forms", icon: <FileText />, label: "My Forms", tooltip: "View Your Submitted Forms (Coming Soon)", disabled: true }, 
 ];
 
 export function UserDashboardSidebarContent() {
@@ -125,7 +177,7 @@ export function UserDashboardSidebarContent() {
       <SidebarFooter className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={userAvatar} alt="User Avatar" data-ai-hint="person avatar" />
+            <AvatarImage src={userAvatar} alt="User Avatar" data-ai-hint="user avatar" />
             <AvatarFallback>{avatarFallback}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col truncate">
