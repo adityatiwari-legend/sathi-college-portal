@@ -7,7 +7,6 @@ import * as admin from 'firebase-admin';
 // !!! Prefer environment variables. This is a fallback if env vars are not set. !!!
 const HARDCODED_PROJECT_ID = "mysaathiapp";
 const HARDCODED_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@mysaathiapp.iam.gserviceaccount.com";
-// Private key from user for mysaathiapp project
 const HARDCODED_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCmzk/gmny7SRCg\n6wvP1CCnyaKFrfdKxu34lcjLaG+vQh+WGqWvsVufg3PVgjTmMczarphdC4xpY91p\nafhyCI4TQLi6clrtWrirgAIWko+UQ194Mc2lR2AKAfLR/+6bhuCiJxVInfv4+3pY\nA+rcxQzesBn6D7fTSnH6rx0Z9MqIWLKoUEyBHDOECq+RWbM+GQMIVmPSYssCTJaC\norzAkmhGz/IBDiOWXuJG0x+bJ2TYdv/Zyhl+eFAdB1/II9lv2GkssW/va8alXqre\nSdIMQItjis5gpQbazgQcOoC+EQW6lesPZxmq3+ILdm+pphxrAnP2yu9YS0JclRuv\nDUgjGZq1AgMBAAECggEABzM1sCaS9qJgf2wUSJgDaDxHa0XdvDW3TQKpvGf2L2AA\n2e6UBmNDzT0A4yKTH6v4h8ImDWW23Zy3KhPuKrC5izvnTWFexEryC8sQEml1agTf\ndwiogJ218X1xV2tL7hz42/iPNJRHLYSs9jKGSoAoV+gzjHKHVyCdQcdM9jm1nVCr\nxeiqBOruy+LcyIqzuGwU/gNuWY+8JnXwMUcc/UoFQ2tjAEsSjyQklgDc9yBjp/7i\nkpuylc8AIpZvYnHwktLFLs5+VcvkBC6xjE1vva/SX3b8vE3tRFa+4amHmSroQAs4\nUdjqOkJ3hHHKV9vCPY+bUHp2ZO6Ywf0SucJdwyVyUQKBgQDQ7qivThQ9Wu41yMXR\n86UDZeptaeOJEJRqAkW/Emw7SjKhdA7vbPPi3HLSG45EFUBsA3V2PI/WzlU/bfGD\nb/z3jhahbUfFxomb/WGgrV6pEvi1u4AlkHM2AM9BVFOISLmeiy3vyvs6s/nsU0m5\nvUPBdfpLuFf67OSDCrls/9vSEQKBgQDMYi6tUFaNOV0QyPRchGlBYDQe5ZdehfZS\nX2LMmp+pe7Pnt6Lzp6fFwHFPTgT5ShyvVKAMezT/emGIdNPTGaGNiintU+Y4dKJX\nYUABob6JDhmw7aA19QwhZP7taiyQOP2ug2DoP8PqDMkfp+zEgyTkbBWc/xggHx9y\nvmQks2oaZQKBgQCYwNSNju1XSmL86bRP4u2TRXEW26Mis/9+Xfj2UJbW5lGMH1lI\nDYVmKLy+Bq2F82+tSP4ZGwAjEanb/RrlePwfVkAPd+FQpO45IRC+s+KQhLFX1SVE\n0Y6aPg9JeUi1TE6BrspAFkyFx84CzYYKiWi/Se1cbQPODmKnuDCHk6z4sQKBgC1T\nYNKizG8JV7BPQJH783PCKAzqEcWuo8/kw35olBv8CQvMV+D9P2HFqdtSjBvU6cOg\nWtYpxLkbpOGkNw3L014WU/ID9zxx8Ua7lHxIKH8wl1X7fNo6e/Qz960jLLrXSLsY\n+7bF3WbcawYQMZvrEZVuuuRUVj9ZZ5oEyySwfUlZAoGBAJMH4NtM8gyGPPU5aA31\nBefDPHumkP9qrURznBWd+nxHKgi4zhmDfqH53WDgkY5CqyrUe4l6Rb4ztfF/Iy+I\naKS5bSm6/sx4Q6vin24rPr47GvgVWLyEY7noqbYvMAUCyICg0G4pQN8a8jwHRzr0\nomMg/CcZrgAp9noN0s3LmuQc\n-----END PRIVATE KEY-----`;
 // --- End Hardcoded Credentials ---
 
@@ -25,80 +24,85 @@ function initializeFirebaseAdminApp() {
   }
   console.log('Firebase Admin SDK: Attempting initialization...');
 
-  const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${HARDCODED_PROJECT_ID}.firebasestorage.app`;
-  console.log(`Firebase Admin SDK: Using storageBucket: ${storageBucket}`);
+  // Determine configuration based on environment variables or fallbacks
+  let serviceAccount;
+  let projectId = process.env.FIREBASE_PROJECT_ID || HARDCODED_PROJECT_ID;
+  let clientEmail = process.env.FIREBASE_CLIENT_EMAIL || HARDCODED_CLIENT_EMAIL;
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY ? formatPrivateKey(process.env.FIREBASE_PRIVATE_KEY) : formatPrivateKey(HARDCODED_PRIVATE_KEY);
+  
+  let databaseURL = process.env.FIREBASE_DATABASE_URL || `https://${projectId}-default-rtdb.firebaseio.com`;
+  let storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${projectId}.firebasestorage.app`; // Use projectId here
+
+  const usedEnvVars = Boolean(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY);
+  const usedHardcoded = !usedEnvVars && Boolean(HARDCODED_PROJECT_ID && HARDCODED_CLIENT_EMAIL && HARDCODED_PRIVATE_KEY);
 
   // 1. Try GOOGLE_APPLICATION_CREDENTIALS environment variable
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     try {
       console.log('Firebase Admin SDK: Attempting initialization with GOOGLE_APPLICATION_CREDENTIALS...');
-      admin.initializeApp({ storageBucket });
+      admin.initializeApp({
+        storageBucket, // GOOGLE_APPLICATION_CREDENTIALS doesn't typically include this.
+        databaseURL: process.env.FIREBASE_DATABASE_URL // Also try to get databaseURL from env if GAC is used
+      });
       adminInstance = admin;
       console.log('Firebase Admin SDK: Successfully initialized using GOOGLE_APPLICATION_CREDENTIALS.');
       return;
     } catch (e: any) {
-      console.error('Firebase Admin SDK: GOOGLE_APPLICATION_CREDENTIALS found but initialization failed:', e.message);
+      console.warn('Firebase Admin SDK: GOOGLE_APPLICATION_CREDENTIALS found but initialization failed:', e.message, 'Falling back to other methods.');
     }
   } else {
     console.log('Firebase Admin SDK: GOOGLE_APPLICATION_CREDENTIALS environment variable not found.');
   }
 
-  // 2. Try specific Firebase environment variables
-  const envProjectId = process.env.FIREBASE_PROJECT_ID;
-  const envClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const envPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
-
-  if (envProjectId && envClientEmail && envPrivateKey) {
+  // 2. Try specific Firebase environment variables OR hardcoded (if env vars failed or are incomplete)
+  if (projectId && clientEmail && privateKey) {
+    serviceAccount = {
+      projectId: projectId,
+      clientEmail: clientEmail,
+      privateKey: privateKey,
+    };
     try {
-      console.log('Firebase Admin SDK: Attempting initialization with FIREBASE_... environment variables...');
+      const initMethod = usedEnvVars ? "specific FIREBASE_... environment variables" : (usedHardcoded ? "hardcoded fallback credentials" : "derived/default credentials");
+      console.log(`Firebase Admin SDK: Attempting initialization with ${initMethod}...`);
+      if(usedHardcoded) {
+         console.warn(
+            'Firebase Admin SDK: !!! SECURITY WARNING !!! Using hardcoded fallback credentials. ' +
+            'This is NOT recommended for production. Configure environment variables for better security.'
+          );
+      }
       admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: envProjectId,
-          clientEmail: envClientEmail,
-          privateKey: formatPrivateKey(envPrivateKey),
-        }),
-        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${envProjectId}.firebasestorage.app`,
+        credential: admin.credential.cert(serviceAccount),
+        storageBucket: storageBucket,
+        databaseURL: databaseURL,
       });
       adminInstance = admin;
-      console.log('Firebase Admin SDK: Successfully initialized using specific FIREBASE_... environment variables.');
+      console.log(`Firebase Admin SDK: Successfully initialized using ${initMethod}.`);
+      console.log(`   Project ID: ${projectId}`);
+      console.log(`   Storage Bucket: ${storageBucket}`);
+      console.log(`   Database URL: ${databaseURL}`);
       return;
     } catch (e: any) {
-      console.error('Firebase Admin SDK: Error initializing with specific FIREBASE_... environment variables:', e.message);
+      console.error(`Firebase Admin SDK: Error initializing with ${usedEnvVars ? "specific FIREBASE_... env vars" : "hardcoded fallback"}:`, e.message);
     }
   } else {
-    console.log('Firebase Admin SDK: One or more specific FIREBASE_... environment variables are missing.');
-    if (!envProjectId) console.log('Firebase Admin SDK: FIREBASE_PROJECT_ID is missing.');
-    if (!envClientEmail) console.log('Firebase Admin SDK: FIREBASE_CLIENT_EMAIL is missing.');
-    if (!envPrivateKey) console.log('Firebase Admin SDK: FIREBASE_PRIVATE_KEY is missing.');
+     console.log('Firebase Admin SDK: Not all required credentials (projectId, clientEmail, privateKey) were available from environment variables or hardcoding for explicit cert initialization.');
   }
 
-  // 3. Fallback to hardcoded credentials
-  if (HARDCODED_PROJECT_ID && HARDCODED_CLIENT_EMAIL && HARDCODED_PRIVATE_KEY) {
-    console.warn(
-      'Firebase Admin SDK: !!! SECURITY WARNING !!! Attempting initialization with hardcoded fallback credentials. ' +
-      'This is NOT recommended for production. Configure environment variables for better security.'
-    );
-    try {
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: HARDCODED_PROJECT_ID,
-          clientEmail: HARDCODED_CLIENT_EMAIL,
-          privateKey: formatPrivateKey(HARDCODED_PRIVATE_KEY),
-        }),
-        storageBucket: `${HARDCODED_PROJECT_ID}.firebasestorage.app`, // Ensure consistent naming
-      });
-      adminInstance = admin;
-      console.log('Firebase Admin SDK: Successfully initialized using hardcoded fallback credentials.');
-      return;
-    } catch (e: any) {
-      console.error('Firebase Admin SDK: Error initializing with hardcoded fallback credentials:', e.message);
-    }
-  } else {
-     console.log('Firebase Admin SDK: Hardcoded credentials are not fully provided.');
+
+  // Final attempt: Default initialization (might work in some Google Cloud environments)
+  try {
+    console.log('Firebase Admin SDK: Attempting default initialization (e.g., for App Engine, Cloud Functions)...');
+    admin.initializeApp({ storageBucket, databaseURL }); // Provide storageBucket and databaseURL for default init
+    adminInstance = admin;
+    console.log('Firebase Admin SDK: Successfully initialized using default credentials (e.g., App Engine, Cloud Functions).');
+    return;
+  } catch (e: any) {
+    console.error('Firebase Admin SDK: Default initialization failed:', e.message);
   }
+
 
   console.error(
-    'Firebase Admin SDK: FAILED TO INITIALIZE. All methods (GOOGLE_APPLICATION_CREDENTIALS, specific environment variables, hardcoded fallback) failed. ' +
+    'Firebase Admin SDK: FAILED TO INITIALIZE. All methods failed. ' +
     'Document upload and other admin operations will not work. Please check your configuration and server logs.'
   );
   adminInstance = null;
@@ -109,5 +113,6 @@ initializeFirebaseAdminApp();
 export const adminAuth = adminInstance?.auth();
 export const adminDb = adminInstance?.firestore();
 export const adminStorage = adminInstance?.storage();
+export const adminRtdb = adminInstance?.database(); // Export Realtime Database admin instance
 
 export default adminInstance;
