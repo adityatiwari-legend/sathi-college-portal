@@ -6,9 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
-import { ArrowLeft, Save, UserCircle2, Image as ImageIcon, Loader2, AlertTriangle, CheckCircle } from "lucide-react";
+import { ArrowLeft, Save, UserCircle2, Image as ImageIcon, Loader2, AlertTriangle, CheckCircle, Palette } from "lucide-react";
 import { onAuthStateChanged, updateProfile, User } from "firebase/auth";
-import { auth } from "@/lib/firebase/config";
+import { auth, rtdb } from "@/lib/firebase/config"; // Import rtdb
+import { ref, set, get, child, onValue } from "firebase/database"; // Import RTDB functions
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -39,13 +41,17 @@ const profileFormSchema = z.object({
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
+type ThemePreference = "light" | "dark" | "system";
 
 export default function UserProfilePage() {
   const [user, setUser] = React.useState<User | null>(null);
   const [isLoadingUser, setIsLoadingUser] = React.useState(true);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
+  const [isSubmittingProfile, setIsSubmittingProfile] = React.useState(false);
+  const [profileError, setProfileError] = React.useState<string | null>(null);
+  const [profileSuccessMessage, setProfileSuccessMessage] = React.useState<string | null>(null);
+  
+  const [themePreference, setThemePreference] = React.useState<ThemePreference>("system");
+  const [isSavingTheme, setIsSavingTheme] = React.useState(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -57,7 +63,7 @@ export default function UserProfilePage() {
   });
 
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         form.reset({
@@ -65,56 +71,97 @@ export default function UserProfilePage() {
           photoURL: currentUser.photoURL || "",
           email: currentUser.email || "",
         });
+
+        // Fetch theme preference from RTDB
+        if (rtdb) {
+          const themePrefRef = ref(rtdb, `userPreferences/${currentUser.uid}/theme`);
+          get(themePrefRef).then((snapshot) => {
+            if (snapshot.exists()) {
+              setThemePreference(snapshot.val() as ThemePreference);
+            } else {
+              setThemePreference("system"); // Default if not found
+            }
+          }).catch(error => {
+            console.error("Error fetching theme preference:", error);
+            toast({ title: "Error", description: "Could not load theme preference.", variant: "destructive" });
+          });
+        }
+
       } else {
         setUser(null);
-        // Optionally redirect to login if no user is found, or handle as needed
-        // router.push('/login'); 
       }
       setIsLoadingUser(false);
     });
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, [form]);
 
-  async function onSubmit(data: ProfileFormValues) {
+  async function onProfileSubmit(data: ProfileFormValues) {
     if (!user) {
       toast({ title: "Error", description: "No authenticated user found.", variant: "destructive" });
       return;
     }
 
-    setIsSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    setIsSubmittingProfile(true);
+    setProfileError(null);
+    setProfileSuccessMessage(null);
 
     try {
       await updateProfile(user, {
-        displayName: data.displayName || null, // Pass null if empty to remove
-        photoURL: data.photoURL || null,     // Pass null if empty to remove
+        displayName: data.displayName || null,
+        photoURL: data.photoURL || null,
       });
-      // Manually update the local user state as `updateProfile` doesn't trigger `onAuthStateChanged` immediately
-      // with new profile info for the same user object. A fresh fetch or state update is needed.
-      setUser(auth.currentUser); // Refetch current user to get updated info
-      form.reset({ // Reset form with potentially updated values
+      setUser(auth.currentUser); 
+      form.reset({ 
           displayName: auth.currentUser?.displayName || "",
           photoURL: auth.currentUser?.photoURL || "",
           email: auth.currentUser?.email || "",
       });
-      setSuccessMessage("Profile updated successfully!");
+      setProfileSuccessMessage("Profile updated successfully!");
       toast({
         title: "Profile Updated",
         description: "Your profile information has been saved.",
       });
     } catch (err: any) {
       console.error("Error updating profile:", err);
-      setError(err.message || "Failed to update profile. Please try again.");
+      setProfileError(err.message || "Failed to update profile. Please try again.");
       toast({
         title: "Update Failed",
         description: err.message || "An error occurred.",
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingProfile(false);
     }
   }
+  
+  const handleThemeChange = async (newTheme: ThemePreference) => {
+    if (!user || !rtdb) {
+      toast({ title: "Error", description: "User not available or RTDB not configured.", variant: "destructive" });
+      return;
+    }
+    setIsSavingTheme(true);
+    setThemePreference(newTheme); // Optimistically update UI
+    try {
+      const themePrefRef = ref(rtdb, `userPreferences/${user.uid}/theme`);
+      await set(themePrefRef, newTheme);
+      toast({
+        title: "Theme Preference Saved",
+        description: `Your theme is set to ${newTheme}.`,
+      });
+    } catch (error) {
+      console.error("Error saving theme preference to RTDB:", error);
+      toast({
+        title: "Error Saving Theme",
+        description: "Could not save your theme preference. Please try again.",
+        variant: "destructive",
+      });
+      // Revert optimistic update if save failed (optional, depends on desired UX)
+      // For simplicity, we're not reverting here. Fetch on load will correct it.
+    } finally {
+      setIsSavingTheme(false);
+    }
+  };
+
 
   if (isLoadingUser) {
     return (
@@ -135,6 +182,14 @@ export default function UserProfilePage() {
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
+             <div className="mt-4 space-y-2">
+                <Skeleton className="h-5 w-32" />
+                <div className="flex space-x-4">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-24" />
+                </div>
+            </div>
           </CardContent>
           <CardFooter className="border-t pt-6">
             <Skeleton className="h-10 w-28" />
@@ -195,7 +250,7 @@ export default function UserProfilePage() {
 
       <Card className="shadow-lg max-w-2xl mx-auto">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+          <form onSubmit={form.handleSubmit(onProfileSubmit)}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <UserCircle2 className="h-7 w-7 text-primary" />
@@ -215,16 +270,16 @@ export default function UserProfilePage() {
                 </Avatar>
               </div>
 
-              {successMessage && (
+              {profileSuccessMessage && (
                 <div className="p-3 border rounded-md bg-green-50 border-green-200 text-green-700 flex items-center gap-2">
                   <CheckCircle className="h-5 w-5" />
-                  <p className="text-sm">{successMessage}</p>
+                  <p className="text-sm">{profileSuccessMessage}</p>
                 </div>
               )}
-              {error && (
+              {profileError && (
                 <div className="p-3 border rounded-md bg-red-50 border-red-200 text-red-700 flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5" />
-                  <p className="text-sm">{error}</p>
+                  <p className="text-sm">{profileError}</p>
                 </div>
               )}
 
@@ -248,7 +303,7 @@ export default function UserProfilePage() {
                   <FormItem>
                     <FormLabel>Display Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Your Name" {...field} disabled={isSubmitting}/>
+                      <Input placeholder="Your Name" {...field} disabled={isSubmittingProfile || isSavingTheme}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -263,7 +318,7 @@ export default function UserProfilePage() {
                         <ImageIcon className="h-4 w-4 text-muted-foreground" /> Profile Photo URL
                     </FormLabel>
                     <FormControl>
-                      <Input type="url" placeholder="https://example.com/your-photo.jpg" {...field} disabled={isSubmitting}/>
+                      <Input type="url" placeholder="https://example.com/your-photo.jpg" {...field} disabled={isSubmittingProfile || isSavingTheme}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -271,18 +326,66 @@ export default function UserProfilePage() {
               />
             </CardContent>
             <CardFooter className="border-t pt-6 flex justify-end">
-              <Button type="submit" disabled={isSubmitting || !form.formState.isDirty}>
-                {isSubmitting ? (
+              <Button type="submit" disabled={isSubmittingProfile || isSavingTheme || !form.formState.isDirty}>
+                {isSubmittingProfile ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                {isSubmitting ? "Saving..." : "Save Changes"}
+                {isSubmittingProfile ? "Saving..." : "Save Profile Changes"}
               </Button>
             </CardFooter>
           </form>
         </Form>
+
+        <CardHeader className="border-t mt-6">
+            <CardTitle className="flex items-center gap-2">
+                <Palette className="h-6 w-6 text-primary" />
+                Theme Preference
+            </CardTitle>
+            <CardDescription>
+                Choose your preferred theme for the portal. This setting is saved in real-time.
+            </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+             <RadioGroup
+                onValueChange={(value) => handleThemeChange(value as ThemePreference)}
+                value={themePreference}
+                className="flex flex-col space-y-1 sm:flex-row sm:space-y-0 sm:space-x-4"
+                disabled={isSubmittingProfile || isSavingTheme}
+              >
+                <FormItem className="flex items-center space-x-2 space-y-0">
+                  <FormControl>
+                    <RadioGroupItem value="light" id="theme-light" />
+                  </FormControl>
+                  <FormLabel htmlFor="theme-light" className="font-normal">
+                    Light
+                  </FormLabel>
+                </FormItem>
+                <FormItem className="flex items-center space-x-2 space-y-0">
+                  <FormControl>
+                    <RadioGroupItem value="dark" id="theme-dark" />
+                  </FormControl>
+                  <FormLabel htmlFor="theme-dark" className="font-normal">
+                    Dark
+                  </FormLabel>
+                </FormItem>
+                <FormItem className="flex items-center space-x-2 space-y-0">
+                  <FormControl>
+                    <RadioGroupItem value="system" id="theme-system" />
+                  </FormControl>
+                  <FormLabel htmlFor="theme-system" className="font-normal">
+                    System
+                  </FormLabel>
+                </FormItem>
+              </RadioGroup>
+              {isSavingTheme && <p className="text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving theme...</p>}
+        </CardContent>
+
       </Card>
     </div>
   );
 }
+
+
+    
