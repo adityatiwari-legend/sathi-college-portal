@@ -8,8 +8,9 @@ import { getAnalytics, type Analytics, isSupported } from "firebase/analytics"; 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig: FirebaseOptions = {
-  apiKey: "grxzbmBOkaUqQlgELbIDGt5fF4S23AOTCgXHKNOu", // User provided this key
+  apiKey: "AIzaSyA6s2CS7pbJdj3dYE0qkhOvCh-94BOIc84",
   authDomain: "mysaathiapp.firebaseapp.com",
+  databaseURL: "https://mysaathiapp-default-rtdb.firebaseio.com", // Added by user
   projectId: "mysaathiapp",
   storageBucket: "mysaathiapp.firebasestorage.app",
   messagingSenderId: "986850959060",
@@ -28,35 +29,47 @@ let googleAuthProvider;
 let analytics: Analytics | null = null;
 
 try {
+  console.log("Attempting Firebase initialization in config.ts...");
   app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  console.log("Firebase app instance:", app ? app.name : 'null');
+  
   auth = getAuth(app);
+  console.log("Firebase Auth initialized:", auth ? 'Yes' : 'No');
+  
   db = getFirestore(app);
+  console.log("Firebase Firestore initialized:", db ? 'Yes' : 'No');
+  
   storage = getStorage(app);
+  console.log("Firebase Storage initialized:", storage ? 'Yes' : 'No');
+
   googleAuthProvider = new GoogleAuthProvider();
+  console.log("GoogleAuthProvider initialized.");
 
   if (typeof window !== 'undefined') {
+    console.log("Running in browser, checking Analytics support...");
     isSupported().then((supported) => {
-      if (supported && app?.name && typeof window !== undefined) { // Check if analytics is supported and app is initialized
+      if (supported && app?.name) { 
         analytics = getAnalytics(app);
         console.log("Firebase Analytics initialized successfully.");
       } else if (supported === false) {
         console.log("Firebase Analytics is not supported in this environment.");
+      } else {
+        console.log("Firebase Analytics support check: app not fully initialized or supported check failed.");
       }
     }).catch(error => {
       console.error("Error checking Firebase Analytics support:", error);
     });
+  } else {
+    console.log("Not running in browser, skipping Analytics initialization.");
   }
 } catch (error) {
   console.error("CRITICAL: Firebase initialization failed in config.ts:", error);
-  // Fallback to null instances if initialization fails to prevent further errors down the line
-  // App might not be functional but won't crash immediately on trying to use these.
-  app = app || null; // Keep app if it was initialized before error
+  app = app || null;
   auth = auth || null;
   db = db || null;
   storage = storage || null;
-  googleAuthProvider = googleAuthProvider || new GoogleAuthProvider(); // Can still create instance
+  googleAuthProvider = googleAuthProvider || new GoogleAuthProvider();
   analytics = null;
 }
-
 
 export { app, auth, db, storage, googleAuthProvider, analytics, firebaseConfig };
