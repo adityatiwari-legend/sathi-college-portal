@@ -24,11 +24,10 @@ export async function POST(request: NextRequest) {
     console.log(`/api/upload-document: File received: ${file.name}, size: ${file.size}, type: ${file.type}, context: ${uploaderContext}`);
 
     // Determine the bucket name to use
-    // Prefer environment variable, then hardcoded, then default from initialized app.
-    const explicitBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "mysaathiapp.firebasestorage.app";
+    const explicitBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "mysaathiapp"; // Fallback to "mysaathiapp"
     console.log(`/api/upload-document: Attempting to use explicit storage bucket: ${explicitBucketName}`);
     
-    const bucket = adminStorage.bucket(explicitBucketName); // Explicitly specify the bucket name
+    const bucket = adminStorage.bucket(explicitBucketName);
     console.log(`/api/upload-document: Successfully got bucket object for: ${bucket.name}`);
     
     const basePath = uploaderContext === 'admin' ? 'admin_uploads' : 'user_uploads';
@@ -85,13 +84,20 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('/api/upload-document: Critical error in POST handler:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to upload file due to an unexpected internal server error.';
+    let errorMessage = 'Failed to upload file due to an unexpected internal server error.';
+    if (error instanceof Error) {
+        errorMessage = error.message;
+    }
     
-    // Log the actual error object for more details
+    // Log the actual error object for more details, especially if it's a structured Firebase/GCS error
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+        // For structured errors (like Firebase/GCS errors which are often objects with message/code)
+        console.error('/api/upload-document: Error object:', JSON.stringify(error, null, 2));
+    }
     if (error instanceof Error && error.cause) {
       console.error('/api/upload-document: Underlying cause:', error.cause);
     }
     
-    return NextResponse.json({ error: errorMessage, details: error instanceof Error ? error.stack : "No stack available" }, { status: 500 });
+    return NextResponse.json({ error: errorMessage, details: error instanceof Error ? error.stack : JSON.stringify(error, null, 2) }, { status: 500 });
   }
 }

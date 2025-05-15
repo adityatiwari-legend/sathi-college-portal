@@ -10,11 +10,11 @@ import { getDatabase } from "firebase/database";
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyA6s2CS7pbJdj3dYE0qkhOvCh-94BOIc84",
+  apiKey: "grxzbmBOkaUqQlgELbIDGt5fF4S23AOTCgXHKNOu", // This was updated based on your previous input
   authDomain: "mysaathiapp.firebaseapp.com",
-  databaseURL: "https://mysaathiapp-default-rtdb.firebaseio.com",
+  databaseURL: "https://mysaathiapp-default-rtdb.firebaseio.com/", // Ensure trailing slash
   projectId: "mysaathiapp",
-  storageBucket: "mysaathiapp.firebasestorage.app",
+  storageBucket: "mysaathiapp", // Updated to 'mysaathiapp'
   messagingSenderId: "986850959060",
   appId: "1:986850959060:web:92c65ccd5786bb5c426541",
   measurementId: "G-JLFPG09VX2"
@@ -42,7 +42,7 @@ try {
   db = getFirestore(app);
   console.log("Firebase Firestore initialized:", db ? 'Yes' : 'No');
   
-  storage = getStorage(app);
+  storage = getStorage(app); // Default bucket from config will be used here
   console.log("Firebase Storage initialized:", storage ? 'Yes' : 'No');
 
   rtdb = getDatabase(app);
