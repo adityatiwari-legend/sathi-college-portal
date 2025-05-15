@@ -1,17 +1,18 @@
 
+// Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp, type FirebaseOptions } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth"; // Added GoogleAuthProvider
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getAnalytics, type Analytics, isSupported } from "firebase/analytics"; // Import Analytics type and isSupported
-import { getDatabase } from "firebase/database"; // Import Realtime Database
+import { getAnalytics, type Analytics, isSupported } from "firebase/analytics";
+import { getDatabase } from "firebase/database";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig: FirebaseOptions = {
-  apiKey: "grxzbmBOkaUqQlgELbIDGt5fF4S23AOTCgXHKNOu", // Updated API Key
+  apiKey: "grxzbmBOkaUqQlgELbIDGt5fF4S23AOTCgXHKNOu",
   authDomain: "mysaathiapp.firebaseapp.com",
-  databaseURL: "https://mysaathiapp-default-rtdb.firebaseio.com", // Added by user
+  databaseURL: "https://mysaathiapp-default-rtdb.firebaseio.com/", // Added trailing slash
   projectId: "mysaathiapp",
   storageBucket: "mysaathiapp.firebasestorage.app",
   messagingSenderId: "986850959060",
@@ -20,7 +21,6 @@ const firebaseConfig: FirebaseOptions = {
 };
 
 console.log("Firebase config being used by client SDK:", JSON.stringify(firebaseConfig, (key, value) => key === 'apiKey' ? '[REDACTED]' : value, 2));
-
 
 // Initialize Firebase
 let app;
@@ -45,7 +45,7 @@ try {
   storage = getStorage(app);
   console.log("Firebase Storage initialized:", storage ? 'Yes' : 'No');
 
-  rtdb = getDatabase(app); // Initialize Realtime Database
+  rtdb = getDatabase(app);
   console.log("Firebase Realtime Database initialized:", rtdb ? 'Yes' : 'No');
 
   googleAuthProvider = new GoogleAuthProvider();
@@ -75,9 +75,8 @@ try {
   db = db || null;
   storage = storage || null;
   rtdb = rtdb || null;
-  googleAuthProvider = googleAuthProvider || new GoogleAuthProvider(); // Ensure it's always defined
+  googleAuthProvider = googleAuthProvider || new GoogleAuthProvider();
   analytics = null;
 }
 
 export { app, auth, db, storage, rtdb, googleAuthProvider, analytics, firebaseConfig };
-
