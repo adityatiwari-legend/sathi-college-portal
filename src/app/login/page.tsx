@@ -7,7 +7,6 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { LogIn, Building2, Loader2, User, Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { signInWithEmailAndPassword, signInWithPopup, User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import { auth, googleAuthProvider, firebaseConfig } from "@/lib/firebase/config";
 
@@ -46,8 +45,6 @@ const loginFormSchema = z.object({
 type LoginFormValues = z.infer<typeof loginFormSchema>;
 
 // --- Hardcoded Admin Credentials ---
-// !!! IMPORTANT: Change these to something secure and keep them safe !!!
-// This method of admin access is not highly secure for production.
 const ADMIN_EMAIL = "admin@sathi.com";
 const ADMIN_PASSWORD = "adminpassword";
 // --- End Hardcoded Admin Credentials ---
@@ -63,7 +60,6 @@ export default function LoginPage() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         console.log("LoginPage: onAuthStateChanged - An active user session exists:", user.uid);
-        // No automatic redirect here. User needs to actively log in.
       } else {
         console.log("LoginPage: onAuthStateChanged - No active user session found.");
       }
@@ -86,14 +82,13 @@ export default function LoginPage() {
     },
   });
 
-  // This function is now only for successful Firebase authenticated users (role 'user')
-  const handleLoginSuccess = (firebaseUser: FirebaseUser) => {
-    console.log(`Logged in user: ${firebaseUser.uid}`);
+  const handleLoginSuccess = (firebaseUser: FirebaseUser, role: "user" | "admin") => {
+    console.log(`Logged in ${role}: ${firebaseUser.uid}`);
     toast({
       title: "Login Successful",
-      description: `Welcome back! Redirecting to your dashboard.`,
+      description: `Welcome back! Redirecting to ${role} dashboard.`,
     });
-    router.push('/user/dashboard'); // Always to user dashboard for Firebase auth
+    router.push(role === "admin" ? '/admin/dashboard' : '/user/dashboard');
   };
   
   const handleAuthError = (error: any, context: "Login" | "Google Sign-In") => {
@@ -143,7 +138,6 @@ export default function LoginPage() {
           title: "Admin Login Successful",
           description: "Redirecting to admin dashboard.",
         });
-        // For hardcoded admin, we don't use Firebase auth. Just redirect.
         router.push('/admin/dashboard');
         setIsLoading(false);
         return;
@@ -159,11 +153,10 @@ export default function LoginPage() {
       }
     }
 
-    // User role login - uses Firebase Authentication
     console.log("Attempting Firebase Email/Password Sign In for user with config:", firebaseConfig);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-      handleLoginSuccess(userCredential.user);
+      handleLoginSuccess(userCredential.user, "user");
     } catch (error) {
       handleAuthError(error, "Login");
     } finally {
@@ -188,15 +181,14 @@ export default function LoginPage() {
             description: "Admin login requires specific email and password. Google Sign-In is for user accounts only.",
             variant: "info"
         });
-        return; // Prevent Google Sign-In if admin role is selected
+        return;
     }
 
-    // Proceed with Google Sign-In only for 'user' role
     setIsGoogleLoading(true);
     console.log("Attempting Firebase Google Sign In for user role with config:", firebaseConfig);
     try {
       const userCredential = await signInWithPopup(auth, googleAuthProvider);
-      handleLoginSuccess(userCredential.user); // Google login always goes to user dashboard
+      handleLoginSuccess(userCredential.user, "user");
     } catch (error) {
       handleAuthError(error, "Google Sign-In");
     } finally {
@@ -248,7 +240,14 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <div className="flex justify-between items-baseline">
+                      <FormLabel>Password</FormLabel>
+                      <Link href="/forgot-password" passHref legacyBehavior>
+                        <a className="text-sm font-medium text-primary hover:underline">
+                          Forgot password?
+                        </a>
+                      </Link>
+                    </div>
                     <FormControl>
                       <Input type="password" placeholder="••••••••" {...field} disabled={isLoading || isGoogleLoading} />
                     </FormControl>
@@ -303,7 +302,7 @@ export default function LoginPage() {
             Sign in with Google (as User)
           </Button>
           <div className="mt-6 text-center text-sm">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link href="/signup" className="font-medium text-primary hover:underline">
               Sign Up
             </Link>
@@ -318,4 +317,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
