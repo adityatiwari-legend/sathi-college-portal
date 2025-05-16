@@ -10,7 +10,10 @@ export async function POST(request: NextRequest) {
     console.error('/api/upload-document: Firebase Admin SDK not initialized properly or storage component missing. adminInstance, adminDb, or adminStorage (or adminStorage.app) is null/undefined.');
     return NextResponse.json({ error: 'Firebase Admin SDK not initialized properly. Check server logs for details.' }, { status: 500 });
   }
-  console.log('/api/upload-document: Firebase Admin SDK instances seem available.');
+  
+  const adminAppProjectId = adminInstance.app.options.projectId;
+  console.log(`/api/upload-document: Firebase Admin SDK initialized for project ID: ${adminAppProjectId}`);
+
 
   try {
     const formData = await request.formData();
@@ -23,10 +26,11 @@ export async function POST(request: NextRequest) {
     }
     console.log(`/api/upload-document: File received: ${file.name}, size: ${file.size}, type: ${file.type}, context: ${uploaderContext}`);
 
-    const explicitBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "mysaathiapp";
-    console.log(`/api/upload-document: Attempting to use explicit storage bucket: ${explicitBucketName}`);
+    // Determine bucket name, prioritizing environment variable, then hardcoded.
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "mysaathiapp.firebasestorage.app";
+    console.log(`/api/upload-document: Attempting to use explicit storage bucket: ${bucketName}`);
     
-    const bucket = adminStorage.bucket(explicitBucketName);
+    const bucket = adminStorage.bucket(bucketName);
     console.log(`/api/upload-document: Successfully got bucket object for: ${bucket.name}`);
     
     const basePath = uploaderContext === 'admin' ? 'admin_uploads' : 'user_uploads';
@@ -86,9 +90,10 @@ export async function POST(request: NextRequest) {
     
     let errorMessage = 'Failed to upload file due to an unexpected internal server error.';
     let errorCode = 'UNKNOWN_ERROR';
-    let errorDetails = error instanceof Error ? error.stack : JSON.stringify(error, null, 2);
+    let errorDetails = error instanceof Error ? error.stack : JSON.stringify(error, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value , 2); // Added bigint replacer
 
-    if (error.code && error.message) { // Check if it's a Firebase/GCP like error object
+    if (error.code && error.message) { 
         errorMessage = error.message;
         errorCode = error.code;
         console.error(`/api/upload-document: Firebase/GCP Error Code: ${error.code}, Message: ${error.message}`);
