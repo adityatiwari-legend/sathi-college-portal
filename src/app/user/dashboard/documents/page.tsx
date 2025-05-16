@@ -7,8 +7,9 @@ import { ArrowLeft, Download, FileIcon, Loader2, AlertTriangle } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { db } from "@/lib/firebase/config"; // Ensure auth is also exported if needed for user checks
+import { auth, db } from "@/lib/firebase/config"; 
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
+import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 
@@ -18,7 +19,7 @@ interface SharedDocument {
   downloadUrl: string;
   contentType: string;
   size: number;
-  uploadedAt: Timestamp | Date | null; // Keep Date for client-side formatting
+  uploadedAt: Timestamp | Date | null; 
   uploaderContext: string;
 }
 
@@ -26,78 +27,79 @@ export default function UserSharedDocumentsPage() {
   const [documents, setDocuments] = React.useState<SharedDocument[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
   React.useEffect(() => {
-    const fetchDocuments = async () => {
-      setIsLoading(true);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setIsLoading(true); // Set loading true when auth state changes or starts checking
       setError(null);
-      console.log("UserSharedDocumentsPage: Attempting to fetch documents...");
-      try {
-        // Optional: Add auth check here if desired, though rules should handle it
-        // const user = auth.currentUser;
-        // if (!user) {
-        //   setError("You must be logged in to view documents.");
-        //   setIsLoading(false);
-        //   return;
-        // }
+      setDocuments([]); // Clear previous documents
+      setCurrentUser(user);
 
-        const documentsCollection = collection(db, "uploadedDocuments");
-        const q = query(
-          documentsCollection,
-          where("uploaderContext", "==", "admin"),
-          orderBy("uploadedAt", "desc")
-        );
-        const querySnapshot = await getDocs(q);
-        
-        console.log(`UserSharedDocumentsPage: Firestore query executed. Found ${querySnapshot.docs.length} documents.`);
+      if (user) {
+        console.log("UserSharedDocumentsPage: User authenticated, attempting to fetch documents...");
+        try {
+          const documentsCollection = collection(db, "uploadedDocuments");
+          const q = query(
+            documentsCollection,
+            where("uploaderContext", "==", "admin"),
+            orderBy("uploadedAt", "desc")
+          );
+          const querySnapshot = await getDocs(q);
+          
+          console.log(`UserSharedDocumentsPage: Firestore query executed. Found ${querySnapshot.docs.length} documents.`);
 
-        const fetchedDocs = querySnapshot.docs.map((doc) => {
-          const data = doc.data();
-          // console.log(`Document data for ${doc.id}:`, data); // Log individual document data
-          return {
-            id: doc.id,
-            originalFileName: data.originalFileName || "Unknown Filename",
-            downloadUrl: data.downloadUrl || "#",
-            contentType: data.contentType || "application/octet-stream",
-            size: data.size || 0,
-            uploadedAt: data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : (data.uploadedAt || null),
-            uploaderContext: data.uploaderContext,
-          } as SharedDocument;
-        });
-        setDocuments(fetchedDocs);
-        if (fetchedDocs.length === 0) {
-          console.log("UserSharedDocumentsPage: No documents found with uploaderContext 'admin'.");
+          const fetchedDocs = querySnapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              originalFileName: data.originalFileName || "Unknown Filename",
+              downloadUrl: data.downloadUrl || "#",
+              contentType: data.contentType || "application/octet-stream",
+              size: data.size || 0,
+              uploadedAt: data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : (data.uploadedAt || null),
+              uploaderContext: data.uploaderContext,
+            } as SharedDocument;
+          });
+          setDocuments(fetchedDocs);
+          if (fetchedDocs.length === 0) {
+            console.log("UserSharedDocumentsPage: No documents found with uploaderContext 'admin'.");
+          }
+        } catch (err: any) {
+          console.error("UserSharedDocumentsPage: Error fetching documents:", err);
+          let errorMessage = "Failed to load documents. Please ensure you are connected to the internet and try again.";
+          if (err.code) {
+              switch (err.code) {
+                  case 'permission-denied':
+                      errorMessage = "Permission denied. You may not have access to view these documents or Firestore rules are misconfigured.";
+                      break;
+                  case 'unauthenticated':
+                      errorMessage = "Authentication required. Please log in to view documents.";
+                      break;
+                  default:
+                      errorMessage = `Error: ${err.message} (Code: ${err.code})`;
+              }
+          } else if (err.message) {
+              errorMessage = err.message;
+          }
+          setError(errorMessage);
+          toast({
+            title: "Error Loading Documents",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        } finally {
+          setIsLoading(false);
         }
-      } catch (err: any) {
-        console.error("UserSharedDocumentsPage: Error fetching documents:", err);
-        let errorMessage = "Failed to load documents. Please ensure you are connected to the internet and try again.";
-        if (err.code) {
-            switch (err.code) {
-                case 'permission-denied':
-                    errorMessage = "Permission denied. You may not have access to view these documents or Firestore rules are misconfigured.";
-                    break;
-                case 'unauthenticated':
-                    errorMessage = "Authentication required. Please log in to view documents.";
-                    break;
-                default:
-                    errorMessage = `Error: ${err.message} (Code: ${err.code})`;
-            }
-        } else if (err.message) {
-            errorMessage = err.message;
-        }
-        setError(errorMessage);
-        toast({
-          title: "Error Loading Documents",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      } finally {
+      } else {
+        console.log("UserSharedDocumentsPage: No user authenticated. Cannot fetch documents.");
+        setError("You must be logged in to view shared documents.");
         setIsLoading(false);
       }
-    };
+    });
 
-    fetchDocuments();
-  }, []);
+    return () => unsubscribe();
+  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
 
   const getFileIconElement = (contentType: string) => {
     if (contentType.startsWith("image/")) return <FileIcon className="h-5 w-5 text-purple-500" aria-label="Image file" />;
@@ -152,7 +154,7 @@ export default function UserSharedDocumentsPage() {
           )}
           {!isLoading && !error && documents.length === 0 && (
             <p className="text-center text-muted-foreground py-10">
-              No documents have been shared by the admin yet, or no documents match the filter criteria.
+              No documents have been shared by the admin yet, or you do not have permission to view them.
             </p>
           )}
           {!isLoading && !error && documents.length > 0 && (
@@ -199,3 +201,4 @@ export default function UserSharedDocumentsPage() {
     </div>
   );
 }
+
