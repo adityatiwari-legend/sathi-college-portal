@@ -9,6 +9,7 @@ import { LogIn, Building2, Loader2, User, Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, signInWithPopup, User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import { auth, googleAuthProvider, firebaseConfig } from "@/lib/firebase/config";
+import Image from "next/image"; // Added this import
 
 import { Button } from "@/components/ui/button";
 import {
@@ -134,11 +135,9 @@ export default function LoginPage() {
     if (data.role === "admin") {
       if (data.email === ADMIN_EMAIL && data.password === ADMIN_PASSWORD) {
         console.log("Admin login successful for:", data.email);
-        toast({
-          title: "Admin Login Successful",
-          description: "Redirecting to admin dashboard.",
-        });
-        router.push('/admin/dashboard');
+        // Simulate a FirebaseUser-like object for handleLoginSuccess for admin
+        const mockAdminUser = { uid: "admin_sathi", email: ADMIN_EMAIL } as FirebaseUser;
+        handleLoginSuccess(mockAdminUser, "admin");
         setIsLoading(false);
         return;
       } else {
