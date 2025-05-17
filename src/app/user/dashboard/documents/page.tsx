@@ -31,27 +31,28 @@ export default function UserSharedDocumentsPage() {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
   const fetchDocuments = async (user: User | null) => {
-    console.log("UserSharedDocumentsPage: fetchDocuments called. Current auth object:", auth.currentUser); // Added this line
-    
-    if (!user) {
-      setError("You must be logged in to view shared documents.");
+    console.log("UserSharedDocumentsPage: fetchDocuments invoked. User object passed:", user ? user.uid : 'null');
+    console.log("UserSharedDocumentsPage: auth.currentUser at fetchDocuments call:", auth.currentUser ? auth.currentUser.uid : 'null');
+
+    if (!user || !user.uid) { // Explicitly check for user.uid
+      setError("User is not properly authenticated. Cannot fetch documents.");
       setIsLoading(false);
       setDocuments([]);
-      console.log("UserSharedDocumentsPage: fetchDocuments called but no user is authenticated.");
+      console.error("UserSharedDocumentsPage: fetchDocuments - User object or user.uid is missing. User:", user);
       return;
     }
-    if (!db) {
+    if (!db) { // Check if db instance is available
       setError("Firestore is not available. Please try again later.");
       setIsLoading(false);
       setDocuments([]);
-      toast({ title: "Error", description: "Database connection failed.", variant: "destructive" });
-      console.error("UserSharedDocumentsPage: Firestore 'db' instance is null.");
+      toast({ title: "Error", description: "Database connection failed. Firestore 'db' instance is null.", variant: "destructive" });
+      console.error("UserSharedDocumentsPage: fetchDocuments - Firestore 'db' instance is null.");
       return;
     }
 
     setIsLoading(true);
     setError(null);
-    console.log("UserSharedDocumentsPage: User authenticated, attempting to fetch documents for user:", user.uid);
+    console.log(`UserSharedDocumentsPage: User authenticated with UID: ${user.uid}. Attempting to fetch documents...`);
 
     try {
       const documentsCollection = collection(db, "uploadedDocuments");
@@ -60,19 +61,18 @@ export default function UserSharedDocumentsPage() {
         where("uploaderContext", "==", "admin"), 
         orderBy("uploadedAt", "desc")
       );
+      console.log("UserSharedDocumentsPage: Firestore query created. Attempting getDocs...");
       const querySnapshot = await getDocs(q);
       
       console.log(`UserSharedDocumentsPage: Firestore query executed for admin documents. Found ${querySnapshot.docs.length} documents.`);
 
       const fetchedDocs = querySnapshot.docs.map((doc) => {
         const data = doc.data();
-        // Handle potential missing fields or incorrect timestamp format gracefully
         let uploadedAtDate: Date | null = null;
         if (data.uploadedAt) {
           if (data.uploadedAt instanceof Timestamp) {
             uploadedAtDate = data.uploadedAt.toDate();
           } else if (typeof data.uploadedAt === 'string') {
-            // Attempt to parse if it's a string, might be ISO
             const parsedDate = new Date(data.uploadedAt);
             if (!isNaN(parsedDate.getTime())) {
               uploadedAtDate = parsedDate;
@@ -80,7 +80,6 @@ export default function UserSharedDocumentsPage() {
               console.warn(`Invalid date string for uploadedAt: ${data.uploadedAt} for doc ID ${doc.id}`);
             }
           } else if (data.uploadedAt.seconds && typeof data.uploadedAt.seconds === 'number') {
-            // Handle Firestore Timestamp-like object if not an instance (e.g., from JSON)
              uploadedAtDate = new Timestamp(data.uploadedAt.seconds, data.uploadedAt.nanoseconds || 0).toDate();
           } else {
             console.warn(`Unexpected uploadedAt format for doc ID ${doc.id}:`, data.uploadedAt);
@@ -93,7 +92,7 @@ export default function UserSharedDocumentsPage() {
           downloadUrl: data.downloadUrl || "#",
           contentType: data.contentType || "application/octet-stream",
           size: data.size || 0,
-          uploadedAt: uploadedAtDate, // Store as Date object
+          uploadedAt: uploadedAtDate,
           uploaderContext: data.uploaderContext || "unknown",
         } as SharedDocument;
       });
@@ -102,7 +101,7 @@ export default function UserSharedDocumentsPage() {
         console.log("UserSharedDocumentsPage: No documents found with uploaderContext 'admin'.");
       }
     } catch (err: any) {
-      console.error("UserSharedDocumentsPage: Error fetching documents:", err);
+      console.error("UserSharedDocumentsPage: Error fetching documents (inside catch block):", err); // Log the full Firebase error object
       let errorMessage = `Failed to load documents. Error: ${err.message || "Unknown error"}.`;
       if (err.code) {
           switch (err.code) {
@@ -129,18 +128,22 @@ export default function UserSharedDocumentsPage() {
   
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("UserSharedDocumentsPage: Auth state changed. User:", user ? user.uid : 'null');
-      setCurrentUser(user); // Set current user
+      console.log("UserSharedDocumentsPage: onAuthStateChanged - User state: ", user ? user.uid : 'null');
+      setCurrentUser(user);
       if (user) {
-        fetchDocuments(user); // Fetch documents if user is logged in
+        console.log("UserSharedDocumentsPage: onAuthStateChanged - User is authenticated, calling fetchDocuments.");
+        fetchDocuments(user);
       } else {
-        // Handle user being logged out (e.g., clear documents, show message)
+        console.log("UserSharedDocumentsPage: onAuthStateChanged - User is not authenticated.");
         setDocuments([]);
         setIsLoading(false);
         setError("Please log in to view shared documents.");
       }
     });
-    return () => unsubscribe(); // Cleanup subscription on component unmount
+    return () => {
+      console.log("UserSharedDocumentsPage: Cleaning up onAuthStateChanged listener.");
+      unsubscribe();
+    };
   }, []); 
 
 
