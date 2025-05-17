@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { auth, db } from "@/lib/firebase/config";
+import { auth, db } from "@/lib/firebase/config"; // Ensure db is correctly imported
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
@@ -21,18 +21,16 @@ interface SharedDocument {
   downloadUrl: string;
   contentType: string;
   size: number;
-  uploadedAt: Date | null; // Using Date object for easier formatting
+  uploadedAt: Date | null;
   uploaderContext: string;
 }
 
 interface SubmittedForm {
   id: string;
   formType: 'Admission' | 'Course Registration';
-  submittedAt: Date | null; // Using Date object
-  // Add other common fields or specific form fields as needed for display
-  desiredProgram?: string; // Example from admission form
-  term?: string; // Example from course registration
-  status?: string; // Placeholder for form status
+  submittedAt: Date | null;
+  details?: string; // Generic field for a brief summary
+  status?: string;
 }
 
 export default function MyActivityPage() {
@@ -45,14 +43,25 @@ export default function MyActivityPage() {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
   const fetchSharedDocuments = async () => {
+    console.log("MyActivityPage: fetchSharedDocuments called. CurrentUser:", currentUser?.uid);
     if (!db) {
-      setErrorSharedDocs("Firestore is not available.");
+      console.error("MyActivityPage: Firestore 'db' instance is not available for shared docs.");
+      setErrorSharedDocs("Firestore is not available to fetch shared documents.");
       setIsLoadingSharedDocs(false);
       return;
     }
+    if (!currentUser) {
+      console.log("MyActivityPage: No current user for fetching shared documents.");
+      setErrorSharedDocs("You must be logged in to view shared documents.");
+      setSharedDocuments([]);
+      setIsLoadingSharedDocs(false);
+      return;
+    }
+
     setIsLoadingSharedDocs(true);
     setErrorSharedDocs(null);
     try {
+      console.log("MyActivityPage: Querying 'uploadedDocuments' for admin uploads...");
       const documentsCollection = collection(db, "uploadedDocuments");
       const q = query(
         documentsCollection,
@@ -60,6 +69,8 @@ export default function MyActivityPage() {
         orderBy("uploadedAt", "desc")
       );
       const querySnapshot = await getDocs(q);
+      console.log(`MyActivityPage: Firestore query for shared documents executed. Found ${querySnapshot.docs.length} documents.`);
+      
       const fetchedDocs = querySnapshot.docs.map((doc) => {
         const data = doc.data();
         return {
@@ -68,13 +79,13 @@ export default function MyActivityPage() {
           downloadUrl: data.downloadUrl || "#",
           contentType: data.contentType || "application/octet-stream",
           size: data.size || 0,
-          uploadedAt: data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : null,
+          uploadedAt: data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : (typeof data.uploadedAt === 'string' ? new Date(data.uploadedAt) : null),
           uploaderContext: data.uploaderContext || "unknown",
         } as SharedDocument;
       });
       setSharedDocuments(fetchedDocs);
     } catch (err: any) {
-      console.error("Error fetching shared documents:", err);
+      console.error("MyActivityPage: Error fetching shared documents:", err);
       setErrorSharedDocs(err.message || "Failed to load shared documents.");
       toast({ title: "Error Loading Shared Documents", description: err.message, variant: "destructive" });
     } finally {
@@ -83,8 +94,10 @@ export default function MyActivityPage() {
   };
 
   const fetchSubmittedForms = async (user: User) => {
+    console.log("MyActivityPage: fetchSubmittedForms called for user:", user.uid);
     if (!db) {
-      setErrorSubmittedForms("Firestore is not available.");
+      console.error("MyActivityPage: Firestore 'db' instance is not available for submitted forms.");
+      setErrorSubmittedForms("Firestore is not available to fetch your forms.");
       setIsLoadingSubmittedForms(false);
       return;
     }
@@ -94,6 +107,7 @@ export default function MyActivityPage() {
       const forms: SubmittedForm[] = [];
 
       // Fetch Admission Forms
+      console.log("MyActivityPage: Querying 'admissionForms' for user:", user.uid);
       const admissionFormsCollection = collection(db, "admissionForms");
       const admissionQuery = query(
         admissionFormsCollection,
@@ -101,42 +115,44 @@ export default function MyActivityPage() {
         orderBy("submittedAt", "desc")
       );
       const admissionSnapshot = await getDocs(admissionQuery);
+      console.log(`MyActivityPage: Firestore query for admission forms executed. Found ${admissionSnapshot.docs.length} forms.`);
       admissionSnapshot.forEach((doc) => {
         const data = doc.data();
         forms.push({
           id: doc.id,
           formType: 'Admission',
-          submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : null,
-          desiredProgram: data.desiredProgram,
-          status: data.status || "Submitted", // Placeholder
+          submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : (typeof data.submittedAt === 'string' ? new Date(data.submittedAt) : null),
+          details: data.desiredProgram ? `Program: ${data.desiredProgram}` : `Full Name: ${data.fullName}`,
+          status: data.status || "Submitted",
         });
       });
 
       // Fetch Course Registrations
+      console.log("MyActivityPage: Querying 'courseRegistrations' for user:", user.uid);
       const courseRegCollection = collection(db, "courseRegistrations");
       const courseRegQuery = query(
         courseRegCollection,
         where("userId", "==", user.uid),
-        orderBy("registeredAt", "desc") // Assuming 'registeredAt' field
+        orderBy("registeredAt", "desc")
       );
       const courseRegSnapshot = await getDocs(courseRegQuery);
+      console.log(`MyActivityPage: Firestore query for course registrations executed. Found ${courseRegSnapshot.docs.length} forms.`);
       courseRegSnapshot.forEach((doc) => {
         const data = doc.data();
         forms.push({
           id: doc.id,
           formType: 'Course Registration',
           submittedAt: data.registeredAt instanceof Timestamp ? data.registeredAt.toDate() : (data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : null),
-          term: data.term,
-          status: data.status || "Submitted", // Placeholder
+          details: data.term ? `Term: ${data.term}` : `Courses: ${(data.selectedCourses || []).length}`,
+          status: data.status || "Submitted",
         });
       });
       
-      // Sort all forms together by submission date, most recent first
       forms.sort((a, b) => (b.submittedAt?.getTime() || 0) - (a.submittedAt?.getTime() || 0));
       setSubmittedForms(forms);
 
     } catch (err: any) {
-      console.error("Error fetching submitted forms:", err);
+      console.error("MyActivityPage: Error fetching submitted forms:", err, "Query for UID:", user.uid);
       setErrorSubmittedForms(err.message || "Failed to load your submitted forms.");
       toast({ title: "Error Loading Submitted Forms", description: err.message, variant: "destructive" });
     } finally {
@@ -145,22 +161,29 @@ export default function MyActivityPage() {
   };
   
   React.useEffect(() => {
+    console.log("MyActivityPage: useEffect for onAuthStateChanged mounting.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("MyActivityPage: onAuthStateChanged triggered. User UID:", user ? user.uid : 'null');
       setCurrentUser(user);
       if (user) {
-        fetchSharedDocuments();
+        console.log("MyActivityPage: User is authenticated. Triggering fetches.");
+        fetchSharedDocuments(); // This fetches admin docs, not user-specific
         fetchSubmittedForms(user);
       } else {
+        console.log("MyActivityPage: User is not authenticated. Clearing data and setting errors.");
         setSharedDocuments([]);
         setSubmittedForms([]);
         setIsLoadingSharedDocs(false);
         setIsLoadingSubmittedForms(false);
-        setErrorSharedDocs("Please log in to view this page.");
-        setErrorSubmittedForms(null); // Clear this error if user logs out
+        setErrorSharedDocs("Please log in to view shared documents.");
+        setErrorSubmittedForms("Please log in to view your submitted forms.");
       }
     });
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      console.log("MyActivityPage: useEffect for onAuthStateChanged unmounting.");
+      unsubscribe();
+    };
+  }, []); // Empty dependency array is correct here
 
   const getFileIconElement = (contentType: string) => {
     if (contentType.startsWith("image/")) return <FileIcon className="h-5 w-5 text-purple-500" aria-label="Image file" />;
@@ -178,7 +201,9 @@ export default function MyActivityPage() {
   };
 
   const refreshAllData = () => {
+    console.log("MyActivityPage: refreshAllData called. CurrentUser:", currentUser?.uid);
     if (currentUser) {
+      toast({title: "Refreshing...", description: "Fetching latest activity."});
       fetchSharedDocuments();
       fetchSubmittedForms(currentUser);
     } else {
@@ -186,6 +211,16 @@ export default function MyActivityPage() {
     }
   };
 
+  const getFormTypeIcon = (formType: SubmittedForm['formType']) => {
+    switch (formType) {
+      case 'Admission':
+        return <FileText className="h-5 w-5 text-blue-500" />;
+      case 'Course Registration':
+        return <BookMarked className="h-5 w-5 text-green-500" />;
+      default:
+        return <ListChecks className="h-5 w-5 text-muted-foreground" />;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -209,6 +244,7 @@ export default function MyActivityPage() {
           <TabsTrigger value="my-forms">My Submitted Forms</TabsTrigger>
           <TabsTrigger value="shared-documents">Shared Documents</TabsTrigger>
         </TabsList>
+        
         <TabsContent value="my-forms">
           <Card className="shadow-lg mt-2">
             <CardHeader>
@@ -251,20 +287,22 @@ export default function MyActivityPage() {
                       {submittedForms.map((form) => (
                         <TableRow key={form.id}>
                           <TableCell>
-                            {form.formType === 'Admission' ? 
-                              <FileText className="h-5 w-5 text-blue-500" /> : 
-                              <BookMarked className="h-5 w-5 text-green-500" />
-                            }
+                            {getFormTypeIcon(form.formType)}
                           </TableCell>
                           <TableCell className="font-medium">{form.formType}</TableCell>
-                          <TableCell className="hidden sm:table-cell text-xs text-muted-foreground truncate max-w-xs">
-                            {form.formType === 'Admission' ? form.desiredProgram : form.term}
+                          <TableCell className="hidden sm:table-cell text-xs text-muted-foreground truncate max-w-xs" title={form.details}>
+                            {form.details || 'N/A'}
                           </TableCell>
                           <TableCell>
-                            {form.submittedAt ? format(form.submittedAt, "PP") : 'N/A'}
+                            {form.submittedAt ? format(form.submittedAt, "PP pp") : 'N/A'}
                           </TableCell>
                           <TableCell className="text-right">
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">
+                            <span className={cn(
+                              "px-2 py-1 text-xs font-medium rounded-full",
+                              form.status === "Approved" ? "bg-green-100 text-green-700" :
+                              form.status === "Rejected" ? "bg-red-100 text-red-700" :
+                              "bg-yellow-100 text-yellow-700" // Default to pending/submitted
+                            )}>
                               {form.status || "Pending"}
                             </span>
                           </TableCell>
@@ -277,6 +315,7 @@ export default function MyActivityPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="shared-documents">
           <Card className="shadow-lg mt-2">
             <CardHeader>
@@ -322,7 +361,7 @@ export default function MyActivityPage() {
                           <TableCell className="font-medium max-w-[150px] sm:max-w-xs truncate" title={doc.originalFileName}>{doc.originalFileName}</TableCell>
                           <TableCell className="hidden sm:table-cell">{formatFileSize(doc.size)}</TableCell>
                           <TableCell className="hidden md:table-cell">
-                            {doc.uploadedAt ? format(doc.uploadedAt, "PP") : 'N/A'}
+                            {doc.uploadedAt ? format(doc.uploadedAt, "PP pp") : 'N/A'}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button variant="outline" size="sm" asChild>
@@ -345,3 +384,6 @@ export default function MyActivityPage() {
     </div>
   );
 }
+
+
+    
