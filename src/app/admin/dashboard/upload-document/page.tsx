@@ -88,9 +88,14 @@ export default function AdminUploadDocumentPage() {
       if (!response.ok) {
         const contentType = response.headers.get("content-type");
         let errorToThrow;
+        let parsedErrorData;
         if (contentType && contentType.includes("application/json")) {
-          const errorData = await response.json();
-          errorToThrow = new Error(errorData.error || `Upload failed with status: ${response.status}`);
+          parsedErrorData = await response.json();
+          // Check if errorData.error is an object with a message, or just a string
+          const serverErrorMessage = typeof parsedErrorData.error === 'object' && parsedErrorData.error !== null && parsedErrorData.error.message 
+                                      ? parsedErrorData.error.message 
+                                      : parsedErrorData.error;
+          errorToThrow = new Error(serverErrorMessage || `Upload failed with status: ${response.status}`);
         } else {
           const errorText = await response.text();
           console.error("Server returned non-JSON error. Response text:", errorText);
@@ -106,16 +111,15 @@ export default function AdminUploadDocumentPage() {
         description: `${selectedFile.name} has been uploaded.`,
       });
       
-      // Clear selection after successful upload for better UX
       setSelectedFile(null);
       setFileName(null);
       setUploadProgress(0);
       if (fileInputRef.current) {
-        fileInputRef.current.value = ""; // Resets the file input element
+        fileInputRef.current.value = ""; 
       }
 
     } catch (error: any) {
-      console.error("Upload error details:", error);
+      console.error("Upload error details (client-side catch):", error);
       let errorMessage = "An unexpected error occurred during upload.";
       if (error.message) {
         errorMessage = error.message;
@@ -129,7 +133,6 @@ export default function AdminUploadDocumentPage() {
       });
     } finally {
       setIsUploading(false);
-      // Don't reset uploadProgress to 0 here if you want to show 100% on success until next action
     }
   };
 
