@@ -31,9 +31,9 @@ export default function UserSharedDocumentsPage() {
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setIsLoading(true); // Set loading true when auth state changes or starts checking
+      setIsLoading(true); 
       setError(null);
-      setDocuments([]); // Clear previous documents
+      setDocuments([]); 
       setCurrentUser(user);
 
       if (user) {
@@ -42,12 +42,12 @@ export default function UserSharedDocumentsPage() {
           const documentsCollection = collection(db, "uploadedDocuments");
           const q = query(
             documentsCollection,
-            where("uploaderContext", "==", "admin"),
+            where("uploaderContext", "==", "admin"), // Only fetch documents uploaded by admin
             orderBy("uploadedAt", "desc")
           );
           const querySnapshot = await getDocs(q);
           
-          console.log(`UserSharedDocumentsPage: Firestore query executed. Found ${querySnapshot.docs.length} documents.`);
+          console.log(`UserSharedDocumentsPage: Firestore query executed for admin documents. Found ${querySnapshot.docs.length} documents.`);
 
           const fetchedDocs = querySnapshot.docs.map((doc) => {
             const data = doc.data();
@@ -57,8 +57,9 @@ export default function UserSharedDocumentsPage() {
               downloadUrl: data.downloadUrl || "#",
               contentType: data.contentType || "application/octet-stream",
               size: data.size || 0,
+              // Convert Firestore Timestamp to Date object for consistent handling
               uploadedAt: data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : (data.uploadedAt || null),
-              uploaderContext: data.uploaderContext,
+              uploaderContext: data.uploaderContext || "unknown",
             } as SharedDocument;
           });
           setDocuments(fetchedDocs);
@@ -99,7 +100,7 @@ export default function UserSharedDocumentsPage() {
     });
 
     return () => unsubscribe();
-  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
+  }, []); 
 
   const getFileIconElement = (contentType: string) => {
     if (contentType.startsWith("image/")) return <FileIcon className="h-5 w-5 text-purple-500" aria-label="Image file" />;
@@ -146,7 +147,7 @@ export default function UserSharedDocumentsPage() {
               <p className="ml-2 text-muted-foreground">Loading documents...</p>
             </div>
           )}
-          {error && (
+          {error && !isLoading && (
             <div role="alert" className="p-4 border rounded-md bg-destructive/10 border-destructive/30 text-destructive flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
               <p className="text-sm">{error}</p>
@@ -154,7 +155,7 @@ export default function UserSharedDocumentsPage() {
           )}
           {!isLoading && !error && documents.length === 0 && (
             <p className="text-center text-muted-foreground py-10">
-              No documents have been shared by the admin yet, or you do not have permission to view them.
+              No documents have been shared by the admin yet, or there was an issue fetching them.
             </p>
           )}
           {!isLoading && !error && documents.length > 0 && (
@@ -176,7 +177,7 @@ export default function UserSharedDocumentsPage() {
                       <TableCell className="font-medium max-w-[150px] sm:max-w-xs truncate" title={doc.originalFileName}>{doc.originalFileName}</TableCell>
                       <TableCell className="hidden sm:table-cell">{formatFileSize(doc.size)}</TableCell>
                       <TableCell className="hidden md:table-cell">
-                        {doc.uploadedAt ? format(new Date(doc.uploadedAt), "PP") : 'N/A'}
+                        {doc.uploadedAt && doc.uploadedAt instanceof Date ? format(doc.uploadedAt, "PP") : 'N/A'}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -201,4 +202,3 @@ export default function UserSharedDocumentsPage() {
     </div>
   );
 }
-
