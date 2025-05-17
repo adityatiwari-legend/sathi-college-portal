@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase/admin';
 import type { DecodedIdToken } from 'firebase-admin/auth';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, collection, query, where, getDocs, limit, addDoc } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
   const adminAuth = getAdminAuth();
@@ -35,29 +35,37 @@ export async function POST(request: NextRequest) {
     if (!formData || typeof formData !== 'object') {
       return NextResponse.json({ error: { message: 'formData is missing or invalid.' } }, { status: 400 });
     }
-    
-    // Optional: Fetch form definition to validate against, or to store with submission
-    // const formDefDoc = await adminDb.collection('customFormSettings').doc(formId).get();
-    // if (!formDefDoc.exists) {
-    //   return NextResponse.json({ error: { message: `Form definition for ${formId} not found.` } }, { status: 404 });
-    // }
-    // const formDef = formDefDoc.data();
-    // Add validation here based on formDef.fields if needed
 
+    // Check for existing submission for this specific custom form by this user
+    const submissionsRef = adminDb.collection('customFormSubmissions');
+    const q = query(submissionsRef, 
+                    where("userId", "==", decodedToken.uid), 
+                    where("formId", "==", formId), 
+                    limit(1));
+    const existingSubmissionSnapshot = await getDocs(q);
+
+    if (!existingSubmissionSnapshot.empty) {
+      return NextResponse.json({ error: { message: 'You have already submitted this form.' } }, { status: 409 });
+    }
+    
     const newSubmission = {
       formId,
       formData,
       userId: decodedToken.uid,
       userEmail: decodedToken.email || null,
       submittedAt: FieldValue.serverTimestamp(),
+      status: "Submitted", // Initial status
     };
     
-    const docRef = await adminDb.collection('customFormSubmissions').add(newSubmission);
+    const docRef = await addDoc(submissionsRef, newSubmission);
     
     return NextResponse.json({ message: 'Custom form submitted successfully', id: docRef.id }, { status: 201 });
 
   } catch (error: any) {
     console.error('Error submitting custom form:', error);
-    return NextResponse.json({ error: { message: 'Failed to submit custom form', details: error.message } }, { status: 500 });
+    const errorDetails = error.code ? { code: error.code, message: error.message } : { message: error.message };
+    return NextResponse.json({ error: { message: 'Failed to submit custom form', details: errorDetails } }, { status: 500 });
   }
 }
+
+    
