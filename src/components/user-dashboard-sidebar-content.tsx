@@ -12,7 +12,8 @@ import {
   Building2,
   BookOpen,
   Users, 
-  ListChecks, // Icon for "My Activity"
+  ListChecks,
+  ClipboardList, // Icon for custom form
 } from "lucide-react";
 
 import {
@@ -109,13 +110,14 @@ const navItems: NavItemProps[] = [
   { href: "/user/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "User Dashboard" },
   { href: "/user/dashboard/profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile" }, 
   {
-    href: "/user/dashboard/forms", 
+    href: "/user/dashboard/forms", // This is the parent for forms
     icon: <FileText />,
-    label: "Submit Forms",
+    label: "College Forms", // Changed label for clarity
     tooltip: "Access College Forms",
     subItems: [
       { href: "/user/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Form" },
       { href: "/user/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Form" },
+      { href: "/user/dashboard/forms/custom-form", icon: <ClipboardList />, label: "Custom Form", tooltip: "Fill Custom Form" },
     ],
   },
   { href: "/user/dashboard/my-activity", icon: <ListChecks />, label: "My Activity", tooltip: "View Submissions & Docs" },

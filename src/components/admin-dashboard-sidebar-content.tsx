@@ -13,8 +13,8 @@ import {
   Users,
   BookOpen,
   UploadCloud,
-  Archive, // Icon for All Submitted Forms
-  PlusCircle, // Icon for Create New Form Type
+  Archive,
+  PlusCircle, // Still can be used for the custom form
 } from "lucide-react";
 
 import {
@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-// import { cn } from "@/lib/utils"; // cn might not be needed here if not using conditional classes based on NavItem logic
 
 interface NavItemProps {
   href: string;
@@ -42,8 +41,6 @@ interface NavItemProps {
 
 const NavItem = ({ href, icon, label, tooltip, subItems }: NavItemProps) => {
   const pathname = usePathname();
-  // Check if current path starts with the item's href for active state.
-  // For sub-items, if any sub-item's href matches the start of pathname, the parent is active.
   const isActive = pathname === href || 
                    (href !== '/admin/dashboard' && pathname.startsWith(href)) || 
                    (subItems && subItems.some(sub => pathname.startsWith(sub.href)));
@@ -91,13 +88,14 @@ const NavItem = ({ href, icon, label, tooltip, subItems }: NavItemProps) => {
 const navItems: NavItemProps[] = [
   { href: "/admin/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "Admin Dashboard Home" },
   {
-    href: "/admin/dashboard/forms", // Changed: Parent link for all form management
+    href: "/admin/dashboard/forms", 
     icon: <FileText />,
-    label: "Manage Forms", // Changed: Label to reflect general form management
+    label: "Manage Forms", 
     tooltip: "Manage College Forms",
     subItems: [
       { href: "/admin/dashboard/forms/admission", icon: <Users />, label: "Admission Config", tooltip: "Configure Admission Forms" },
       { href: "/admin/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg. Config", tooltip: "Configure Course Registration Forms" },
+      { href: "/admin/dashboard/forms/configure-custom", icon: <PlusCircle />, label: "Configure Custom Form", tooltip: "Configure the Global Custom Form" },
     ],
   },
   { href: "/admin/dashboard/all-submitted-forms", icon: <Archive />, label: "All Submissions", tooltip: "View All Submitted Forms" },
@@ -126,7 +124,7 @@ export function AdminDashboardSidebarContent() {
       <SidebarFooter className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src="https://picsum.photos/id/237/200/200" alt="Admin Avatar" data-ai-hint="admin avatar" />
+            <AvatarImage src="https://picsum.photos/id/237/200/200" alt="Admin Avatar" data-ai-hint="admin avatar"/>
             <AvatarFallback>AD</AvatarFallback>
           </Avatar>
           <div className="flex flex-col">

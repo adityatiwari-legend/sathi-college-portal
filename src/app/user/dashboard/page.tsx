@@ -3,7 +3,7 @@
 
 import * as React from "react"; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { FileText, UserCircle2, BookOpen, ListChecks, Save, Download as DownloadIcon, Loader2 } from "lucide-react"; // Changed Files to ListChecks
+import { FileText, UserCircle2, BookOpen, ListChecks, Save, Download as DownloadIcon, Loader2, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { onAuthStateChanged, User } from "firebase/auth"; 
 import { auth, rtdb } from "@/lib/firebase/config"; 
@@ -129,16 +129,23 @@ export default function UserDashboardPage() {
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-medium">
-              Submit Forms
+              College Forms
             </CardTitle>
             <FileText className="h-6 w-6 text-accent" /> 
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Fill out and submit Admission, Course Registration, and other forms.
+              Submit Admission, Course Registration, and other available forms.
             </p>
-            <Link href="/user/dashboard/forms/admission" className="text-sm font-medium text-primary hover:underline">
-              Go to Forms &rarr;
+            {/* This link could go to a general forms listing page if you create one, or directly to admission if it's primary */}
+            <Link href="/user/dashboard/forms/admission" className="text-sm font-medium text-primary hover:underline mr-2">
+              Admission Form &rarr;
+            </Link>
+            <Link href="/user/dashboard/forms/course-registration" className="text-sm font-medium text-primary hover:underline mr-2">
+              Course Reg. &rarr;
+            </Link>
+             <Link href="/user/dashboard/forms/custom-form" className="text-sm font-medium text-primary hover:underline">
+              Custom Form &rarr;
             </Link>
           </CardContent>
         </Card>
