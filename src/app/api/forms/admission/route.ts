@@ -6,10 +6,10 @@ import { FieldValue } from 'firebase-admin/firestore';
 
 export async function GET(request: NextRequest) {
   console.log("/api/forms/admission: GET request received");
-  const adminDb = getAdminDb();
+  const adminDb = getAdminDb(); // Call the getter function
 
   if (!adminDb) {
-    console.error('/api/forms/admission: GET - Firestore Admin service not available.');
+    console.error('/api/forms/admission: GET - Firestore Admin service not available. Admin SDK might not have initialized properly.');
     return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Firestore).' }, { status: 500 });
   }
 
@@ -26,12 +26,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   console.log("/api/forms/admission: POST request received");
-  const adminAuth = getAdminAuth();
-  const adminDb = getAdminDb();
+  const adminAuth = getAdminAuth(); // Call the getter function
+  const adminDb = getAdminDb();     // Call the getter function
 
-  if (!adminAuth || !adminDb) {
-    console.error('/api/forms/admission: POST - Firebase Admin SDK (Auth or Firestore) not available.');
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized properly.' }, { status: 500 });
+  if (!adminAuth) {
+    console.error('/api/forms/admission: POST - Auth Admin service not available. Admin SDK might not have initialized properly.');
+    return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Auth).' }, { status: 500 });
+  }
+  if (!adminDb) {
+    console.error('/api/forms/admission: POST - Firestore Admin service not available. Admin SDK might not have initialized properly.');
+    return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Firestore).' }, { status: 500 });
   }
 
   try {
@@ -54,7 +58,6 @@ export async function POST(request: NextRequest) {
     const formData = await request.json();
     console.log("/api/forms/admission: POST - Received form data:", formData);
     
-    // Basic validation example (consider using a schema library like Zod for robust validation)
     if (!formData.fullName || !formData.dateOfBirth || !formData.desiredProgram || !formData.statement) {
         console.log('/api/forms/admission: POST - Validation failed: Missing required fields.');
         return NextResponse.json({ error: 'Validation Failed: Missing required fields.' }, { status: 400 });
@@ -63,7 +66,7 @@ export async function POST(request: NextRequest) {
     const newForm = {
       ...formData,
       userId: decodedToken.uid,
-      userEmail: decodedToken.email || null, // Ensure email is either string or null
+      userEmail: decodedToken.email || null, 
       submittedAt: FieldValue.serverTimestamp(),
     };
     
@@ -75,7 +78,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Error submitting admission form (/api/forms/admission POST):', error);
-    // Log the full error object if it has useful properties
     const errorDetails = error.code ? { code: error.code, message: error.message, stack: error.stack } : { message: error.message, stack: error.stack };
     return NextResponse.json({ error: 'Failed to submit admission form', details: errorDetails }, { status: 500 });
   }
