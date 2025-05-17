@@ -86,6 +86,8 @@ export default function UserAdmissionFormPage() {
       return;
     }
 
+    console.log("Submitting admission form data:", data);
+
     try {
       const idToken = await user.getIdToken();
       const response = await fetch("/api/forms/admission", {
@@ -101,19 +103,31 @@ export default function UserAdmissionFormPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to submit admission form.");
+        let errorData;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          errorData = await response.json();
+          console.error("Server returned JSON error:", errorData);
+        } else {
+          const errorText = await response.text();
+          console.error("Server returned non-JSON error. Status:", response.status, "Response text:", errorText);
+          errorData = { error: `Server error: ${response.status}. Check browser console for HTML response.` };
+        }
+        throw new Error(errorData.error || "Failed to submit admission form. Server returned an error.");
       }
 
+      const result = await response.json();
+      console.log("Admission form submission successful:", result);
       toast({
         title: "Form Submitted",
-        description: "Your admission form has been submitted successfully.",
+        description: "Your admission form has been submitted successfully. Form ID: " + result.id,
       });
       form.reset();
     } catch (error: any) {
+      console.error("Admission form submission error (client-side catch):", error);
       toast({
         title: "Submission Failed",
-        description: error.message || "An unexpected error occurred.",
+        description: error.message || "An unexpected error occurred while submitting the form.",
         variant: "destructive",
       });
     } finally {
