@@ -5,12 +5,23 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, UploadCloud, FileUp, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { ArrowLeft, UploadCloud, FileUp, CheckCircle, AlertTriangle, Loader2, FileIcon, Download, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { format } from "date-fns";
 
+interface UploadedAdminDocument {
+  id: string;
+  originalFileName: string;
+  downloadUrl: string;
+  contentType: string;
+  size: number;
+  uploadedAt: string | null; // ISO string from API
+  uploaderContext: string;
+}
 
 export default function AdminUploadDocumentPage() { 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -20,7 +31,35 @@ export default function AdminUploadDocumentPage() {
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = React.useState<string | null>(null);
 
+  const [adminDocuments, setAdminDocuments] = React.useState<UploadedAdminDocument[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = React.useState(true);
+  const [fetchDocError, setFetchDocError] = React.useState<string | null>(null);
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const fetchAdminDocuments = async () => {
+    setIsLoadingDocuments(true);
+    setFetchDocError(null);
+    try {
+      const response = await fetch("/api/admin/list-documents");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `Failed to fetch documents: ${response.statusText}`);
+      }
+      const data: UploadedAdminDocument[] = await response.json();
+      setAdminDocuments(data);
+    } catch (error: any) {
+      console.error("Error fetching admin documents:", error);
+      setFetchDocError(error.message || "Could not load admin documents.");
+      toast({ title: "Error Loading Documents", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoadingDocuments(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchAdminDocuments();
+  }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -65,7 +104,6 @@ export default function AdminUploadDocumentPage() {
       formData.append("file", selectedFile);
       formData.append("uploaderContext", "admin");
 
-
       let progress = 0;
       const progressInterval = setInterval(() => {
         progress += 10;
@@ -75,7 +113,6 @@ export default function AdminUploadDocumentPage() {
             clearInterval(progressInterval)
         }
       }, 200);
-
 
       const response = await fetch("/api/upload-document", {
         method: "POST",
@@ -91,10 +128,9 @@ export default function AdminUploadDocumentPage() {
         let parsedErrorData;
         if (contentType && contentType.includes("application/json")) {
           parsedErrorData = await response.json();
-          // Check if errorData.error is an object with a message, or just a string
-          const serverErrorMessage = typeof parsedErrorData.error === 'object' && parsedErrorData.error !== null && parsedErrorData.error.message 
+          const serverErrorMessage = (typeof parsedErrorData.error === 'object' && parsedErrorData.error !== null && parsedErrorData.error.message) 
                                       ? parsedErrorData.error.message 
-                                      : parsedErrorData.error;
+                                      : (typeof parsedErrorData.error === 'string' ? parsedErrorData.error : "Unknown server error (JSON)");
           errorToThrow = new Error(serverErrorMessage || `Upload failed with status: ${response.status}`);
         } else {
           const errorText = await response.text();
@@ -117,7 +153,7 @@ export default function AdminUploadDocumentPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ""; 
       }
-
+      fetchAdminDocuments(); // Refresh the list of documents
     } catch (error: any) {
       console.error("Upload error details (client-side catch):", error);
       let errorMessage = "An unexpected error occurred during upload.";
@@ -145,6 +181,23 @@ export default function AdminUploadDocumentPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  const getFileIconElement = (contentType: string) => {
+    if (contentType.startsWith("image/")) return <FileIcon className="h-5 w-5 text-purple-500" aria-label="Image file" />;
+    if (contentType === "application/pdf") return <FileIcon className="h-5 w-5 text-red-500" aria-label="PDF file" />;
+    if (contentType.includes("wordprocessingml") || contentType.includes("msword")) return <FileIcon className="h-5 w-5 text-blue-600" aria-label="Word document" />;
+    if (contentType.includes("spreadsheetml") || contentType.includes("excel")) return <FileIcon className="h-5 w-5 text-green-600" aria-label="Excel spreadsheet" />;
+    if (contentType.includes("presentationml") || contentType.includes("powerpoint")) return <FileIcon className="h-5 w-5 text-orange-500" aria-label="PowerPoint presentation" />;
+    return <FileIcon className="h-5 w-5 text-muted-foreground" aria-label="Generic file" />;
+  };
+  
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -154,7 +207,7 @@ export default function AdminUploadDocumentPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">(Admin) Upload Document</h1>
+          <h1 className="text-3xl font-bold tracking-tight">(Admin) Upload & Manage Documents</h1>
         </div>
       </div>
       
@@ -162,8 +215,7 @@ export default function AdminUploadDocumentPage() {
         <CardHeader>
           <CardTitle>Document Upload Center</CardTitle>
           <CardDescription>
-            Use this section to upload various documents.
-            Admins can manage all uploaded documents.
+            Upload new documents to be shared with users.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -263,7 +315,70 @@ export default function AdminUploadDocumentPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card className="shadow-lg mt-8">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Uploaded Admin Documents</CardTitle>
+            <CardDescription>List of documents uploaded by administrators.</CardDescription>
+          </div>
+           <Button variant="outline" size="icon" onClick={fetchAdminDocuments} disabled={isLoadingDocuments} aria-label="Refresh documents">
+              <RefreshCw className={cn("h-4 w-4", isLoadingDocuments && "animate-spin")} />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoadingDocuments && (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-2 text-muted-foreground">Loading documents...</p>
+            </div>
+          )}
+          {fetchDocError && !isLoadingDocuments && (
+            <div role="alert" className="p-4 border rounded-md bg-destructive/10 border-destructive/30 text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              <p className="text-sm">{fetchDocError}</p>
+            </div>
+          )}
+          {!isLoadingDocuments && !fetchDocError && adminDocuments.length === 0 && (
+            <p className="text-center text-muted-foreground py-10">No documents have been uploaded by admins yet.</p>
+          )}
+          {!isLoadingDocuments && !fetchDocError && adminDocuments.length > 0 && (
+             <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[60px] sm:w-[80px]">Type</TableHead>
+                    <TableHead>File Name</TableHead>
+                    <TableHead className="hidden sm:table-cell">Size</TableHead>
+                    <TableHead className="hidden md:table-cell">Uploaded On</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {adminDocuments.map((doc) => (
+                    <TableRow key={doc.id}>
+                      <TableCell>{getFileIconElement(doc.contentType)}</TableCell>
+                      <TableCell className="font-medium max-w-[150px] sm:max-w-xs truncate" title={doc.originalFileName}>{doc.originalFileName}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{formatFileSize(doc.size)}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {doc.uploadedAt ? format(new Date(doc.uploadedAt), "PP pp") : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={doc.downloadUrl} target="_blank" rel="noopener noreferrer" download={doc.originalFileName}>
+                            <Download className="mr-1 sm:mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">View/Download</span>
+                          </a>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
-

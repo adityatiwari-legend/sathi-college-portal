@@ -9,17 +9,17 @@ import { getDatabase } from "firebase/database";
 
 // Your web app's Firebase configuration
 const firebaseConfig: FirebaseOptions = {
-  apiKey: "AIzaSyB73DZNfXqvoPs3EV3ExtcSz2wttJmjpUo", // User confirmed this key
+  apiKey: "C6DmoepqC4qLqXGhju7LTdLr1dkbi0bf7Uc8yJcM",
   authDomain: "sathi-app-3vfky.firebaseapp.com",
-  databaseURL: "https://sathi-app-3vfky-default-rtdb.firebaseio.com/", // Includes trailing slash
+  databaseURL: "https://sathi-app-3vfky-default-rtdb.firebaseio.com/",
   projectId: "sathi-app-3vfky",
-  storageBucket: "sathi-app-3vfky.firebasestorage.app", // Ensuring this is set
+  storageBucket: "sathi-app-3vfky.firebasestorage.app",
   messagingSenderId: "386973720111",
-  appId: "1:386973720111:web:1efdcc3e5f732ba39bf0da"
-  // measurementId: "G-JLFPG09VX2" // Removed as per user's last config update without it
+  appId: "1:386973720111:web:92c65ccd5786bb5c426541",
+  measurementId: "G-JLFPG09VX2"
 };
 
-console.log("Firebase config being used by client SDK:", JSON.stringify({...firebaseConfig, apiKey: "[REDACTED]"}, null, 2));
+console.log("Firebase config being used by client SDK (config.ts):", JSON.stringify({...firebaseConfig, apiKey: "[REDACTED]"}, null, 2));
 
 // Initialize Firebase
 let app;
@@ -28,61 +28,64 @@ let db;
 let storage;
 let googleAuthProvider;
 let analytics: Analytics | null = null;
-let rtdb; 
+let rtdb;
 
 try {
   console.log("Attempting Firebase initialization in config.ts...");
-  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-  console.log("Firebase app instance:", app ? app.name : 'null');
-  
+  if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+    console.log("Firebase app initialized successfully (config.ts):", app.name);
+  } else {
+    app = getApp();
+    console.log("Firebase app already initialized (config.ts):", app.name);
+  }
+
   auth = getAuth(app);
-  console.log("Firebase Auth initialized:", auth ? 'Yes' : 'No');
-  
+  console.log("Firebase Auth initialized (config.ts):", auth ? 'Yes' : 'No');
+
   db = getFirestore(app);
-  console.log("Firebase Firestore initialized:", db ? 'Yes' : 'No');
-  
-  storage = getStorage(app); 
-  console.log("Firebase Storage initialized:", storage ? 'Yes' : 'No');
+  console.log("Firebase Firestore initialized (config.ts):", db ? 'Yes' : 'No');
+
+  storage = getStorage(app);
+  console.log("Firebase Storage initialized (config.ts):", storage ? 'Yes' : 'No');
 
   if (firebaseConfig.databaseURL) {
     rtdb = getDatabase(app);
-    console.log("Firebase Realtime Database initialized with URL:", firebaseConfig.databaseURL, rtdb ? 'Yes' : 'No');
+    console.log("Firebase Realtime Database initialized (config.ts):", rtdb ? 'Yes' : 'No', "with URL:", firebaseConfig.databaseURL);
   } else {
     rtdb = null;
-    console.log("Firebase Realtime Database URL not provided in config, RTDB not initialized.");
+    console.log("Firebase Realtime Database URL not provided, RTDB not initialized (config.ts).");
   }
 
   googleAuthProvider = new GoogleAuthProvider();
-  console.log("GoogleAuthProvider initialized.");
+  console.log("GoogleAuthProvider initialized (config.ts).");
 
   if (typeof window !== 'undefined') {
-    console.log("Running in browser, checking Analytics support...");
+    console.log("Running in browser, checking Analytics support (config.ts)...");
     isSupported().then((supported) => {
-      if (supported && app?.name && firebaseConfig.measurementId) { 
+      if (supported && app?.name && firebaseConfig.measurementId) {
         analytics = getAnalytics(app);
-        console.log("Firebase Analytics initialized successfully.");
-      } else if (supported === false) {
-        console.log("Firebase Analytics is not supported in this environment (isSupported() returned false).");
+        console.log("Firebase Analytics initialized successfully (config.ts).");
+      } else if (!supported) {
+        console.log("Firebase Analytics is not supported in this environment (config.ts).");
       } else if (!firebaseConfig.measurementId) {
-        console.log("Firebase Analytics not initialized because measurementId is missing from firebaseConfig.");
-      } else {
-        console.log("Firebase Analytics support check: app not fully initialized or supported check failed.");
+        console.log("Firebase Analytics not initialized: measurementId is missing (config.ts).");
       }
     }).catch(error => {
-      console.error("Error checking Firebase Analytics support:", error);
+      console.error("Error checking Firebase Analytics support (config.ts):", error);
     });
   } else {
-    console.log("Not running in browser, skipping Analytics initialization.");
+    console.log("Not running in browser, skipping Analytics initialization (config.ts).");
   }
 } catch (error: any) {
-  console.error("CRITICAL: Firebase initialization failed in config.ts:", error.message, error.stack);
+  console.error("CRITICAL: Firebase client SDK initialization FAILED in config.ts:", error.message, error.stack);
   // Ensure these are defined even on failure to prevent further "not defined" errors downstream
-  app = app || null; 
+  app = app || null;
   auth = auth || null;
   db = db || null;
   storage = storage || null;
   rtdb = rtdb || null;
-  googleAuthProvider = googleAuthProvider || new GoogleAuthProvider(); // Initialize even if other parts fail
+  googleAuthProvider = googleAuthProvider || new GoogleAuthProvider();
   analytics = null;
 }
 
