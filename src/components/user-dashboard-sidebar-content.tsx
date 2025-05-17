@@ -10,9 +10,9 @@ import {
   UserCircle2,
   LogOut,
   Building2,
-  Files, 
   BookOpen,
-  Users, // Added Users for admission forms
+  Users, 
+  ListChecks, // Icon for "My Activity"
 } from "lucide-react";
 
 import {
@@ -22,9 +22,9 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarMenuSub,      // Added
-  SidebarMenuSubButton, // Added
-  SidebarMenuSubItem,   // Added
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ interface NavItemProps {
   label: string;
   tooltip: string;
   disabled?: boolean;
-  subItems?: NavItemProps[]; // Added for sub-menus
+  subItems?: NavItemProps[];
 }
 
 const NavItem = ({ href, icon, label, tooltip, disabled = false, subItems }: NavItemProps) => {
@@ -92,7 +92,6 @@ const NavItem = ({ href, icon, label, tooltip, disabled = false, subItems }: Nav
     );
   }
 
-
   return (
     <SidebarMenuItem>
        <Link href={href} passHref legacyBehavior>
@@ -110,16 +109,16 @@ const navItems: NavItemProps[] = [
   { href: "/user/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "User Dashboard" },
   { href: "/user/dashboard/profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile" }, 
   {
-    href: "/user/dashboard/forms", // Parent path for forms section
+    href: "/user/dashboard/forms", 
     icon: <FileText />,
-    label: "Forms",
+    label: "Submit Forms",
     tooltip: "Access College Forms",
     subItems: [
       { href: "/user/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Form" },
       { href: "/user/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Form" },
     ],
   },
-  { href: "/user/dashboard/documents", icon: <Files />, label: "Shared Documents", tooltip: "View Shared Documents" },
+  { href: "/user/dashboard/my-activity", icon: <ListChecks />, label: "My Activity", tooltip: "View Submissions & Docs" },
 ];
 
 export function UserDashboardSidebarContent() {
@@ -155,7 +154,6 @@ export function UserDashboardSidebarContent() {
     return "U";
   };
   const avatarFallback = getAvatarFallback(userName);
-
 
   return (
     <>

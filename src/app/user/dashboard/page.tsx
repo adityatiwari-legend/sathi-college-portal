@@ -3,7 +3,7 @@
 
 import * as React from "react"; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { FileText, Files, UserCircle2, BookOpen, Users as UsersIcon, Save, Download as DownloadIcon, Loader2 } from "lucide-react";
+import { FileText, UserCircle2, BookOpen, ListChecks, Save, Download as DownloadIcon, Loader2 } from "lucide-react"; // Changed Files to ListChecks
 import Link from "next/link";
 import { onAuthStateChanged, User } from "firebase/auth"; 
 import { auth, rtdb } from "@/lib/firebase/config"; 
@@ -25,7 +25,6 @@ export default function UserDashboardPage() {
       setCurrentUser(user);
       setIsLoading(false);
       if (user) {
-        // Optionally load initial RTDB message on auth change
         handleLoadFromRtdb(user); 
       }
     });
@@ -52,7 +51,7 @@ export default function UserDashboardPage() {
       const userMessageRef = ref(rtdb, `userRtdbTestData/${currentUser.uid}/message`);
       await set(userMessageRef, rtdbMessage);
       toast({ title: "Success", description: "Message saved to Realtime Database!" });
-      setRtdbMessage(""); // Clear input after saving
+      setRtdbMessage(""); 
     } catch (error: any) {
       console.error("Error saving to RTDB:", error);
       toast({ title: "RTDB Error", description: error.message || "Failed to save message.", variant: "destructive" });
@@ -64,19 +63,19 @@ export default function UserDashboardPage() {
   const handleLoadFromRtdb = async (userToLoadFor?: User | null) => {
     const targetUser = userToLoadFor || currentUser;
     if (!targetUser || !rtdb) {
-      if (!userToLoadFor) { // Only show toast if manually triggered by button click
+      if (!userToLoadFor) { 
           toast({ title: "Error", description: "User not authenticated or RTDB not available.", variant: "destructive" });
       }
       return;
     }
     setIsRtdbLoading(true);
-    setLoadedRtdbMessage(null); // Clear previous message
+    setLoadedRtdbMessage(null); 
     try {
       const dbRef = ref(rtdb);
       const snapshot = await get(child(dbRef, `userRtdbTestData/${targetUser.uid}/message`));
       if (snapshot.exists()) {
         setLoadedRtdbMessage(snapshot.val());
-        if (!userToLoadFor) { // Only show toast if manually triggered
+        if (!userToLoadFor) { 
              toast({ title: "Success", description: "Message loaded from Realtime Database." });
         }
       } else {
@@ -95,7 +94,6 @@ export default function UserDashboardPage() {
       setIsRtdbLoading(false);
     }
   };
-
 
   return (
     <div className="space-y-6">
@@ -131,16 +129,16 @@ export default function UserDashboardPage() {
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-medium">
-              Admission Form
+              Submit Forms
             </CardTitle>
-            <UsersIcon className="h-6 w-6 text-accent" />
+            <FileText className="h-6 w-6 text-accent" /> 
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Apply for admission to Sathi College.
+              Fill out and submit Admission, Course Registration, and other forms.
             </p>
             <Link href="/user/dashboard/forms/admission" className="text-sm font-medium text-primary hover:underline">
-              Go to Admission Form &rarr;
+              Go to Forms &rarr;
             </Link>
           </CardContent>
         </Card>
@@ -148,51 +146,17 @@ export default function UserDashboardPage() {
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-medium">
-              Course Registration
+              My Activity
             </CardTitle>
-            <BookOpen className="h-6 w-6 text-accent" />
+            <ListChecks className="h-6 w-6 text-accent" />
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Register for courses for the upcoming academic term.
+              Track your submitted forms and view shared documents.
             </p>
-            <Link href="/user/dashboard/forms/course-registration" className="text-sm font-medium text-primary hover:underline">
-              Register for Courses &rarr;
+            <Link href="/user/dashboard/my-activity" className="text-sm font-medium text-primary hover:underline">
+              View Activity &rarr;
             </Link>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-medium">
-              Shared Documents
-            </CardTitle>
-            <Files className="h-6 w-6 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Access documents shared by the administration.
-            </p>
-            <Link href="/user/dashboard/documents" className="text-sm font-medium text-primary hover:underline">
-              View Documents &rarr;
-            </Link>
-          </CardContent>
-        </Card>
-
-         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 opacity-70 cursor-not-allowed">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-medium">
-              My Submitted Forms
-            </CardTitle>
-            <FileText className="h-6 w-6 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Track the status of your admission, course registration, and other submitted forms. (Coming Soon)
-            </p>
-             <span className="text-sm font-medium text-muted-foreground/80 cursor-not-allowed" aria-disabled="true">
-              View My Forms &rarr;
-            </span>
           </CardContent>
         </Card>
       </div>
@@ -246,4 +210,3 @@ export default function UserDashboardPage() {
     </div>
   );
 }
-
