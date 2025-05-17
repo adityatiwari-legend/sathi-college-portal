@@ -12,7 +12,7 @@ import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/
 import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils"; // Added missing import
+import { cn } from "@/lib/utils";
 
 interface SharedDocument {
   id: string;
@@ -31,6 +31,8 @@ export default function UserSharedDocumentsPage() {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
   const fetchDocuments = async (user: User | null) => {
+    console.log("UserSharedDocumentsPage: fetchDocuments called. Current auth object:", auth.currentUser); // Added this line
+    
     if (!user) {
       setError("You must be logged in to view shared documents.");
       setIsLoading(false);
