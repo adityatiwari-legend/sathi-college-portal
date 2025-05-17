@@ -8,16 +8,15 @@ import { getAnalytics, type Analytics, isSupported } from "firebase/analytics";
 import { getDatabase } from "firebase/database";
 
 // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig: FirebaseOptions = {
-  apiKey: "AIzaSyB73DZNfXqvoPs3EV3ExtcSz2wttJmjpUo", // Confirmed by user
+  apiKey: "AIzaSyB73DZNfXqvoPs3EV3ExtcSz2wttJmjpUo", // User confirmed this key
   authDomain: "sathi-app-3vfky.firebaseapp.com",
-  databaseURL: "https://sathi-app-3vfky-default-rtdb.firebaseio.com/", // Updated based on user input
+  databaseURL: "https://sathi-app-3vfky-default-rtdb.firebaseio.com/", // Includes trailing slash
   projectId: "sathi-app-3vfky",
-  storageBucket: "sathi-app-3vfky.firebasestorage.app",
+  storageBucket: "sathi-app-3vfky.firebasestorage.app", // Ensuring this is set
   messagingSenderId: "386973720111",
-  appId: "1:386973720111:web:1efdcc3e5f732ba39bf0da",
-  // measurementId: "G-JLFPG09VX2" // MeasurementId was from a previous config, removed as not in latest snippet.
+  appId: "1:386973720111:web:1efdcc3e5f732ba39bf0da"
+  // measurementId: "G-JLFPG09VX2" // Removed as per user's last config update without it
 };
 
 console.log("Firebase config being used by client SDK:", JSON.stringify({...firebaseConfig, apiKey: "[REDACTED]"}, null, 2));
@@ -29,7 +28,7 @@ let db;
 let storage;
 let googleAuthProvider;
 let analytics: Analytics | null = null;
-let rtdb; // Realtime Database instance
+let rtdb; 
 
 try {
   console.log("Attempting Firebase initialization in config.ts...");
@@ -77,12 +76,13 @@ try {
   }
 } catch (error: any) {
   console.error("CRITICAL: Firebase initialization failed in config.ts:", error.message, error.stack);
+  // Ensure these are defined even on failure to prevent further "not defined" errors downstream
   app = app || null; 
   auth = auth || null;
   db = db || null;
   storage = storage || null;
   rtdb = rtdb || null;
-  googleAuthProvider = googleAuthProvider || new GoogleAuthProvider();
+  googleAuthProvider = googleAuthProvider || new GoogleAuthProvider(); // Initialize even if other parts fail
   analytics = null;
 }
 

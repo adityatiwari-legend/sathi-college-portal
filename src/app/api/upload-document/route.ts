@@ -26,8 +26,7 @@ export async function POST(request: NextRequest) {
     }
     console.log(`/api/upload-document: File received: ${file.name}, size: ${file.size}, type: ${file.type}, context: ${uploaderContext}`);
 
-    // Determine bucket name, prioritizing environment variable, then hardcoded.
-    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "mysaathiapp.firebasestorage.app";
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "sathi-app-3vfky.firebasestorage.app";
     console.log(`/api/upload-document: Attempting to use explicit storage bucket: ${bucketName}`);
     
     const bucket = adminStorage.bucket(bucketName);
@@ -91,7 +90,7 @@ export async function POST(request: NextRequest) {
     let errorMessage = 'Failed to upload file due to an unexpected internal server error.';
     let errorCode = 'UNKNOWN_ERROR';
     let errorDetails = error instanceof Error ? error.stack : JSON.stringify(error, (key, value) =>
-      typeof value === 'bigint' ? value.toString() : value , 2); // Added bigint replacer
+      typeof value === 'bigint' ? value.toString() : value , 2); 
 
     if (error.code && error.message) { 
         errorMessage = error.message;
