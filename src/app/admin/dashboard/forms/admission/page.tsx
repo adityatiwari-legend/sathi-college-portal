@@ -57,26 +57,43 @@ export default function AdmissionFormsPage() {
   const fetchSettings = React.useCallback(async () => {
     setIsLoadingSettings(true);
     setSubmitError(null);
+    setSubmitSuccess(null); 
+    console.log("AdmissionFormsPage: Fetching settings for 'admission' form type...");
     try {
       const response = await fetch("/api/admin/form-settings?formType=admission");
+      console.log("AdmissionFormsPage: Fetch response status:", response.status);
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || "Failed to load admission form settings.");
+        const contentType = response.headers.get("content-type");
+        let errorData;
+        if (contentType && contentType.includes("application/json")) {
+          errorData = await response.json();
+          console.error("AdmissionFormsPage: Server returned JSON error on fetch:", errorData);
+          throw new Error(errorData.error?.message || `Failed to load admission form settings. Status: ${response.status}`);
+        } else {
+          const errorText = await response.text();
+          console.error("AdmissionFormsPage: Server returned non-JSON error on fetch. Status:", response.status, "Response text:", errorText);
+          throw new Error(`Server error: ${response.status}. Check browser console and server logs for details.`);
+        }
       }
       const data = await response.json();
+      console.log("AdmissionFormsPage: Settings data received:", data);
       if (data.settings) {
         form.reset({
           title: data.settings.title || "Sathi College Admissions",
           description: data.settings.description || "Apply now for the upcoming academic year.",
           isActive: data.settings.isActive === undefined ? false : data.settings.isActive,
         });
+      } else {
+         console.log("AdmissionFormsPage: No settings found in response, using defaults.");
+         // form.reset with defaults is already handled by useForm initialization
       }
     } catch (err: any) {
-      console.error("Error fetching admission settings:", err);
+      console.error("AdmissionFormsPage: Error fetching admission settings:", err);
       setSubmitError(err.message);
       toast({ title: "Error Loading Settings", description: err.message, variant: "destructive" });
     } finally {
       setIsLoadingSettings(false);
+      console.log("AdmissionFormsPage: Finished fetching settings.");
     }
   }, [form]);
 
@@ -88,24 +105,37 @@ export default function AdmissionFormsPage() {
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(null);
+    console.log("AdmissionFormsPage: Submitting settings:", data);
     try {
       const response = await fetch("/api/admin/form-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ formType: "admission", ...data }),
       });
+      console.log("AdmissionFormsPage: Submit response status:", response.status);
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || "Failed to save admission form settings.");
+        const contentType = response.headers.get("content-type");
+        let errorData;
+        if (contentType && contentType.includes("application/json")) {
+          errorData = await response.json();
+           console.error("AdmissionFormsPage: Server returned JSON error on submit:", errorData);
+          throw new Error(errorData.error?.message || `Failed to save admission form settings. Status: ${response.status}`);
+        } else {
+          const errorText = await response.text();
+          console.error("AdmissionFormsPage: Server returned non-JSON error on submit. Status:", response.status, "Response text:", errorText);
+          throw new Error(`Server error: ${response.status}. Check browser console and server logs for details.`);
+        }
       }
       toast({ title: "Settings Saved", description: "Admission form settings have been updated." });
       setSubmitSuccess("Admission form settings saved successfully!");
+      fetchSettings(); // Re-fetch to ensure UI is consistent with backend
     } catch (err: any) {
-      console.error("Error saving admission settings:", err);
+      console.error("AdmissionFormsPage: Error saving admission settings:", err);
       setSubmitError(err.message);
       toast({ title: "Error Saving Settings", description: err.message, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
+      console.log("AdmissionFormsPage: Finished submitting settings.");
     }
   }
   return (
@@ -113,7 +143,7 @@ export default function AdmissionFormsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
-            <Link href="/admin/dashboard/forms"> {/* Updated back link */}
+            <Link href="/admin/dashboard/forms">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
