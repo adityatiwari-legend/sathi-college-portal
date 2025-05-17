@@ -13,6 +13,7 @@ import {
   Users,
   BookOpen,
   UploadCloud,
+  Archive, // Icon for All Submitted Forms
 } from "lucide-react";
 
 import {
@@ -43,7 +44,7 @@ const NavItem = ({ href, icon, label, tooltip, subItems }: NavItemProps) => {
   // Check if current path starts with the item's href for active state.
   // For sub-items, if any sub-item's href matches the start of pathname, the parent is active.
   const isActive = pathname === href || 
-                   (href !== '/admin/dashboard' && pathname.startsWith(href)) || // Handles cases like /admin/dashboard/forms matching /admin/dashboard/forms/admission
+                   (href !== '/admin/dashboard' && pathname.startsWith(href)) || 
                    (subItems && subItems.some(sub => pathname.startsWith(sub.href)));
 
 
@@ -98,11 +99,12 @@ const navItems: NavItemProps[] = [
       { href: "/admin/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Forms" },
     ],
   },
+  { href: "/admin/dashboard/all-submitted-forms", icon: <Archive />, label: "All Submissions", tooltip: "View All Submitted Forms" },
   { href: "/admin/dashboard/upload-document", icon: <UploadCloud />, label: "Upload Document", tooltip: "Manage Uploaded Documents" },
   { href: "/admin/dashboard/settings", icon: <Settings />, label: "Settings", tooltip: "App Settings" },
 ];
 
-export function AdminDashboardSidebarContent() { // Renamed component
+export function AdminDashboardSidebarContent() { 
   return (
     <>
       <SidebarHeader className="p-4">

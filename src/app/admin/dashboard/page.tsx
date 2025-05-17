@@ -6,10 +6,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FileText, Users, Settings } from "lucide-react";
+import { FileText, Users, Settings, Archive } from "lucide-react"; // Added Archive icon
 import Link from "next/link";
 
-export default function AdminDashboardPage() { // Renamed component
+export default function AdminDashboardPage() { 
   return (
     <div className="space-y-6">
       <div className="flex flex-col space-y-2">
@@ -23,19 +23,37 @@ export default function AdminDashboardPage() { // Renamed component
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-medium">
-              College Forms
+              Form Templates
             </CardTitle>
             <FileText className="h-6 w-6 text-accent" />
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Access and manage various college-related forms like admission, course registration, etc.
+              Access and manage various college-related form templates.
             </p>
             <Link href="/admin/dashboard/forms/admission" className="text-sm font-medium text-primary hover:underline">
-              Go to Forms &rarr;
+              Manage Form Templates &rarr;
             </Link>
           </CardContent>
         </Card>
+        
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg font-medium">
+              All Submitted Forms
+            </CardTitle>
+            <Archive className="h-6 w-6 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              View and manage all forms submitted by users across the portal.
+            </p>
+            <Link href="/admin/dashboard/all-submitted-forms" className="text-sm font-medium text-primary hover:underline">
+              View All Submissions &rarr;
+            </Link>
+          </CardContent>
+        </Card>
+
 
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -74,33 +92,37 @@ export default function AdminDashboardPage() { // Renamed component
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Forms Overview</CardTitle>
+          <CardTitle>Quick Access</CardTitle>
           <CardDescription>
-            This area will display a summary or quick access to different forms once they are implemented.
+            Jump to key administrative sections.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">
-            Currently, no forms are configured. Please check back later or navigate using the sidebar.
-          </p>
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="p-4 border rounded-lg bg-card/50">
-              <h3 className="font-semibold mb-2">Admission Forms</h3>
-              <p className="text-sm text-muted-foreground">Create, view, and manage student admission applications.</p>
+              <h3 className="font-semibold mb-2">Admission Forms (Templates)</h3>
+              <p className="text-sm text-muted-foreground">Create and manage admission form templates.</p>
               <Link href="/admin/dashboard/forms/admission" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
-                View Admission Forms &rarr;
+                Manage Admission Templates &rarr;
               </Link>
             </div>
             <div className="p-4 border rounded-lg bg-card/50">
-              <h3 className="font-semibold mb-2">Course Registration</h3>
-              <p className="text-sm text-muted-foreground">Handle student course selections and registrations for academic terms.</p>
+              <h3 className="font-semibold mb-2">Course Reg. (Templates)</h3>
+              <p className="text-sm text-muted-foreground">Set up course registration periods and forms.</p>
                <Link href="/admin/dashboard/forms/course-registration" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
-                View Course Registrations &rarr;
+                Manage Course Reg. Templates &rarr;
+              </Link>
+            </div>
+            <div className="p-4 border rounded-lg bg-card/50">
+              <h3 className="font-semibold mb-2">View All Submissions</h3>
+              <p className="text-sm text-muted-foreground">Review all submitted forms.</p>
+               <Link href="/admin/dashboard/all-submitted-forms" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
+                Go to Submissions &rarr;
               </Link>
             </div>
              <div className="p-4 border rounded-lg bg-card/50">
               <h3 className="font-semibold mb-2">Upload Documents</h3>
-              <p className="text-sm text-muted-foreground">Manage uploaded documents from users or admins.</p>
+              <p className="text-sm text-muted-foreground">Manage documents shared with users.</p>
                <Link href="/admin/dashboard/upload-document" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
                 Manage Uploads &rarr;
               </Link>
