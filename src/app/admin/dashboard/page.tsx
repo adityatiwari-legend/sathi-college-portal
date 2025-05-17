@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FileText, Users, Settings, Archive } from "lucide-react"; // Added Archive icon
+import { FileText, Users, Settings, Archive, BookOpen } from "lucide-react"; // Added BookOpen
 import Link from "next/link";
 
 export default function AdminDashboardPage() { 
@@ -23,16 +23,16 @@ export default function AdminDashboardPage() {
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-medium">
-              Form Templates
+              Manage College Forms
             </CardTitle>
             <FileText className="h-6 w-6 text-accent" />
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Access and manage various college-related form templates.
+              Configure admission, course registration, and other form types.
             </p>
-            <Link href="/admin/dashboard/forms/admission" className="text-sm font-medium text-primary hover:underline">
-              Manage Form Templates &rarr;
+            <Link href="/admin/dashboard/forms" className="text-sm font-medium text-primary hover:underline">
+              Manage Forms &rarr;
             </Link>
           </CardContent>
         </Card>
@@ -100,17 +100,17 @@ export default function AdminDashboardPage() {
         <CardContent>
           <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="p-4 border rounded-lg bg-card/50">
-              <h3 className="font-semibold mb-2">Admission Forms (Templates)</h3>
-              <p className="text-sm text-muted-foreground">Create and manage admission form templates.</p>
+              <h3 className="font-semibold mb-2">Configure Admission Forms</h3>
+              <p className="text-sm text-muted-foreground">Set title, description, and status for admissions.</p>
               <Link href="/admin/dashboard/forms/admission" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
-                Manage Admission Templates &rarr;
+                Configure Admissions &rarr;
               </Link>
             </div>
             <div className="p-4 border rounded-lg bg-card/50">
-              <h3 className="font-semibold mb-2">Course Reg. (Templates)</h3>
-              <p className="text-sm text-muted-foreground">Set up course registration periods and forms.</p>
+              <h3 className="font-semibold mb-2">Configure Course Reg.</h3>
+              <p className="text-sm text-muted-foreground">Set up course registration periods and settings.</p>
                <Link href="/admin/dashboard/forms/course-registration" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
-                Manage Course Reg. Templates &rarr;
+                Configure Course Reg. &rarr;
               </Link>
             </div>
             <div className="p-4 border rounded-lg bg-card/50">

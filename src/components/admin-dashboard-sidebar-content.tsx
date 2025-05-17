@@ -14,6 +14,7 @@ import {
   BookOpen,
   UploadCloud,
   Archive, // Icon for All Submitted Forms
+  PlusCircle, // Icon for Create New Form Type
 } from "lucide-react";
 
 import {
@@ -90,13 +91,13 @@ const NavItem = ({ href, icon, label, tooltip, subItems }: NavItemProps) => {
 const navItems: NavItemProps[] = [
   { href: "/admin/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "Admin Dashboard Home" },
   {
-    href: "/admin/dashboard/forms", // Parent path for forms section
+    href: "/admin/dashboard/forms", // Changed: Parent link for all form management
     icon: <FileText />,
-    label: "College Forms",
-    tooltip: "Manage Forms",
+    label: "Manage Forms", // Changed: Label to reflect general form management
+    tooltip: "Manage College Forms",
     subItems: [
-      { href: "/admin/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Forms" },
-      { href: "/admin/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Forms" },
+      { href: "/admin/dashboard/forms/admission", icon: <Users />, label: "Admission Config", tooltip: "Configure Admission Forms" },
+      { href: "/admin/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg. Config", tooltip: "Configure Course Registration Forms" },
     ],
   },
   { href: "/admin/dashboard/all-submitted-forms", icon: <Archive />, label: "All Submissions", tooltip: "View All Submitted Forms" },
