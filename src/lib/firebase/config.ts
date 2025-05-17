@@ -10,14 +10,14 @@ import { getDatabase } from "firebase/database";
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig: FirebaseOptions = {
-  apiKey: "AIzaSyB73DZNfXqvoPs3EV3ExtcSz2wttJmjpUo",
+  apiKey: "AIzaSyB73DZNfXqvoPs3EV3ExtcSz2wttJmjpUo", // Confirmed by user
   authDomain: "sathi-app-3vfky.firebaseapp.com",
-  databaseURL: "https://sathi-app-3vfky-default-rtdb.firebaseio.com/", // Ensured trailing slash
+  databaseURL: "https://sathi-app-3vfky-default-rtdb.firebaseio.com/", // Updated based on user input
   projectId: "sathi-app-3vfky",
   storageBucket: "sathi-app-3vfky.firebasestorage.app",
   messagingSenderId: "386973720111",
   appId: "1:386973720111:web:1efdcc3e5f732ba39bf0da",
-  // measurementId is not present in your new config, if needed, add it here
+  // measurementId: "G-JLFPG09VX2" // MeasurementId was from a previous config, removed as not in latest snippet.
 };
 
 console.log("Firebase config being used by client SDK:", JSON.stringify({...firebaseConfig, apiKey: "[REDACTED]"}, null, 2));
@@ -47,7 +47,7 @@ try {
 
   if (firebaseConfig.databaseURL) {
     rtdb = getDatabase(app);
-    console.log("Firebase Realtime Database initialized:", rtdb ? 'Yes' : 'No');
+    console.log("Firebase Realtime Database initialized with URL:", firebaseConfig.databaseURL, rtdb ? 'Yes' : 'No');
   } else {
     rtdb = null;
     console.log("Firebase Realtime Database URL not provided in config, RTDB not initialized.");
