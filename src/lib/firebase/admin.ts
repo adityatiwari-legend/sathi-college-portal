@@ -1,13 +1,22 @@
 
 import * as admin from 'firebase-admin';
 
-// Fallback credentials for sathi-app-3vfky project (Service Account Key you provided last)
-const HARDCODED_PROJECT_ID = "sathi-app-3vfky";
-const HARDCODED_STORAGE_BUCKET = "sathi-app-3vfky.firebasestorage.app"; // Updated to match user's gs:// URL
-const HARDCODED_DATABASE_URL = "https://sathi-app-3vfky-default-rtdb.firebaseio.com/"; // Updated
-const HARDCODED_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@mysaathiapp.iam.gserviceaccount.com"; // This is from previous mysaathiapp service account
-const HARDCODED_PRIVATE_KEY_ID = "f56bfb3520997b8bc546254e6541451195995920"; // This is from previous mysaathiapp service account
-const HARDCODED_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC7RlKAcS16Z2KB\nkg/e7oS+a8y+2jgC/P7JW8Q+weehk0F0gcKvbGZ33BLI5U9c9B5hLBED51JMdS0Q\novbdRmhD1dwyZmM83kXFfyJvvrKYj0lSLac/rckYhU6raGCkE2rnaxMA+QNJf8uf\nNJ5germxYReHnoZ+ju8mbAlmi423wArFFnhFQI2fKbeE8crHbY4CwdVxSzlyIeCI\nCSrjhKyvFjEsbdfnHy69J6cHcL5OGLrPEJsjq2rdFlJtin1i9Xn4WbwR8rPSHq/g\nMlH4UM7+LfHKpRBMa5Z66tHgpO3aBZqk8TTXUdjSgaGepDgnQIiBgcwUh8/uEhmV\nNqhQYhQNAgMBAAECggEAA/3ywkQnWQWdJu/rILBq6fg4TBUwvneQItCu9TuC6YHP\nEmG1ubGQ2Zs6V0f0EiIuB5o93pxut6yDwmgG5R6cGF4VrIlcMi72w8f6/vDMs83S\nHUtV1lipAbnNvH+kF7tGOxqgNBQaytVLjOA9RAc5sBtGuiBZ85auaF5DMQlmgvUu\nnLYINhorDox3iGRjzZYFPMp92ggHAbuaW6W3iuVe6ON/jnmOxkPuEzbOZ6SyFELq\nvmMu2NSUJ/9o9sQq88/hXTYv9KWevnvRHL9SkA0WbBLnQiqo+Br8F8rlRr5LmWsp\nO7JjoBCJ/mtt7Ze7EeXKUgz3gy2PLvWOBLtqMrxNjQKBgQD4f6O9KvJhq26vDDvX\nEUvK03MJVw2vvXT67Ul8mLIB3edD5jemDRvhRGcYvDhosvrfUsb+GIQUWajNWH/A\nQ3Sl9P1MYCtihx69ianbRgGS18NJdjYjy6knX356n2B5IrI5gLdUJ4Z+w51jz1G8\nuG53f68rZ43GbZFzBytyWUpzDwKBgQDA7Y2uzOeFy96RkXax7d9GbRzV5vPdT8a3\n7e4xBTQxF3n6Sjjl1doxOY1/vBVicPhKS71iZrNX366UoEmlHvvwlU9lGKjTkIgs\n3+QIIN+MkTEOYxu0GuGM1ZtsZRRhtedTbH7nYj/jUeIpdw7sv9e1C3t7FTuTBw5O\nitlhL0IXIwKBgDKvHf98XfmL1MSBU0c3cOUKocD674CzvMNdWIrAPjZhQ0U3FIya\nyd/1aq3B3iOEteSM5qd26qGX8/UGIvBdEdKzmGJWjyLGen+gL3PY4INJ3LwED2DX\nrkWolYx/K1cpu349Aad5dFYwoc50v7AlUeqvsVPCCEm7mVoD0Vm+WpADAoGAEfgO\nMjGzfqq2WCiMPZZCLXUMMoAIRpyfjZIDlV0+tzPQkJdJJV79q4gIvdTuyPRsq77S\nLNAT9CNJR16GfXKdVJMTif75+nqDtGpF+tvU9mqvfv+MHQJD77IVf8sKUu92VDbO\nuw5TlQCTZ/lG0pYrqRkgrx4TJmaJ1pboGD0mkrECgYBh5UqceWUMI9Yg/wqBRXhq\njHIVVv/T7ZfF5nMv6+E13JKtHeqDxqGjfvEy2VU1ZsibHbdv3EeVjLjdPwDv98nr\nkOJqyB4ZOMEEZfeJ66RLN0VZvygdN2cgMN0psMz5vFmTfWiElh4vkjQMnR8RZAWB\nApqO4KgNKBQTAz+ccFqIBg==\n-----END PRIVATE KEY-----`;
+// Constants for sathi-app-3vfky project (as per user's latest project target)
+const TARGET_PROJECT_ID = "sathi-app-3vfky";
+const TARGET_STORAGE_BUCKET = "sathi-app-3vfky.firebasestorage.app"; // Default or from NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+const TARGET_DATABASE_URL = "https://sathi-app-3vfky-default-rtdb.firebaseio.com/";
+
+// Fallback credentials - THESE ARE CURRENTLY MISMATCHED if used for sathi-app-3vfky
+// The client_email and private_key below are from a service account for 'mysaathiapp'
+// (private_key_id: "854175cf2281c04d98160c540929d97335db0535")
+// If environment variables are not set, this fallback will likely FAIL for 'sathi-app-3vfky'.
+const HARDCODED_PROJECT_ID_FALLBACK_TARGET = TARGET_PROJECT_ID; // This is correct for target project
+const HARDCODED_CLIENT_EMAIL_FALLBACK_MISMATCH = "firebase-adminsdk-fbsvc@mysaathiapp.iam.gserviceaccount.com"; // From mysaathiapp SA
+const HARDCODED_PRIVATE_KEY_ID_FALLBACK_MISMATCH = "854175cf2281c04d98160c540929d97335db0535"; // From mysaathiapp SA
+const HARDCODED_PRIVATE_KEY_FALLBACK_MISMATCH = `-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCmzk/gmny7SRCg\n6wvP1CCnyaKFrfdKxu34lcjLaG+vQh+WGqWvsVufg3PVgjTmMczarphdC4xpY91p\nafhyCI4TQLi6clrtWrirgAIWko+UQ194Mc2lR2AKAfLR/+6bhuCiJxVInfv4+3pY\nA+rcxQzesBn6D7fTSnH6rx0Z9MqIWLKoUEyBHDOECq+RWbM+GQMIVmPSYssCTJaC\norzAkmhGz/IBDiOWXuJG0x+bJ2TYdv/Zyhl+eFAdB1/II9lv2GkssW/va8alXqre\nSdIMQItjis5gpQbazgQcOoC+EQW6lesPZxmq3+ILdm+pphxrAnP2yu9YS0JclRuv\nDUgjGZq1AgMBAAECggEABzM1sCaS9qJgf2wUSJgDaDxHa0XdvDW3TQKpvGf2L2AA\n2e6UBmNDzT0A4yKTH6v4h8ImDWW23Zy3KhPuKrC5izvnTWFexEryC8sQEml1agTf\ndwiogJ218X1xV2tL7hz42/iPNJRHLYSs9jKGSoAoV+gzjHKHVyCdQcdM9jm1nVCr\nxeiqBOruy+LcyIqzuGwU/gNuWY+8JnXwMUcc/UoFQ2tjAEsSjyQklgDc9yBjp/7i\nkpuylc8AIpZvYnHwktLFLs5+VcvkBC6xjE1vva/SX3b8vE3tRFa+4amHmSroQAs4\nUdjqOkJ3hHHKV9vCPY+bUHp2ZO6Ywf0SucJdwyVyUQKBgQDQ7qivThQ9Wu41yMXR\n86UDZeptaeOJEJRqAkW/Emw7SjKhdA7vbPPi3HLSG45EFUBsA3V2PI/WzlU/bfGD\nb/z3jhahbUfFxomb/WGgrV6pEvi1u4AlkHM2AM9BVFOISLmeiy3vyvs6s/nsU0m5\nvUPBdfpLuFf67OSDCrls/9vSEQKBgQDMYi6tUFaNOV0QyPRchGlBYDQe5ZdehfZS\nX2LMmp+pe7Pnt6Lzp6fFwHFPTgT5ShyvVKAMezT/emGIdNPTGaGNiintU+Y4dKJX\nYUABob6JDhmw7aA19QwhZP7taiyQOP2ug2DoP8PqDMkfp+zEgyTkbBWc/xggHx9y\nvmQks2oaZQKBgQCYwNSNju1XSmL86bRP4u2TRXEW26Mis/9+Xfj2UJbW5lGMH1lI\nDYVmKLy+Bq2F82+tSP4ZGwAjEanb/RrlePwfVkAPd+FQpO45IRC+s+KQhLFX1SVE\n0Y6aPg9JeUi1TE6BrspAFkyFx84CzYYKiWi/Se1cbQPODmKnuDCHk6z4sQKBgC1T\nYNKizG8JV7BPQJH783PCKAzqEcWuo8/kw35olBv8CQvMV+D9P2HFqdtSjBvU6cOg\nWtYpxLkbpOGkNw3L014WU/ID9zxx8Ua7lHxIKH8wl1X7fNo6e/Qz960jLLrXSLsY\n+7bF3WbcawYQMZvrEZVuuuRUVj9ZZ5oEyySwfUlZAoGBAJMH4NtM8gyGPPU5aA31\nBefDPHumkP9qrURznBWd+nxHKgi4zhmDfqH53WDgkY5CqyrUe4l6Rb4ztfF/Iy+I\naKS5bSm6/sx4Q6vin24rPr47GvgVWLyEY7noqbYvMAUCyICg0G4pQN8a8jwHRzr0\nomMg/CcZrgAp9noN0s3LmuQc\n-----END PRIVATE KEY-----`;
+const HARDCODED_STORAGE_BUCKET_FALLBACK = TARGET_STORAGE_BUCKET;
+const HARDCODED_DATABASE_URL_FALLBACK = TARGET_DATABASE_URL;
+
 
 function formatPrivateKey(key: string): string {
   return key.replace(/\\n/g, '\n');
@@ -26,7 +35,7 @@ function initializeFirebaseAdminApp() {
   const envProjectId = process.env.FIREBASE_PROJECT_ID;
   const envClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const envPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
-  let envStorageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  let envStorageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET; // Check both
   let envDatabaseURL = process.env.FIREBASE_DATABASE_URL;
 
   if (envDatabaseURL && !envDatabaseURL.endsWith('/')) {
@@ -36,19 +45,19 @@ function initializeFirebaseAdminApp() {
     envStorageBucket = envStorageBucket.substring(5);
   }
   
-  const effectiveProjectId = envProjectId || HARDCODED_PROJECT_ID;
-  const effectiveStorageBucket = envStorageBucket || HARDCODED_STORAGE_BUCKET;
-  const effectiveDatabaseURL = envDatabaseURL || HARDCODED_DATABASE_URL;
+  const effectiveProjectId = envProjectId || HARDCODED_PROJECT_ID_FALLBACK_TARGET;
+  const effectiveStorageBucket = envStorageBucket || HARDCODED_STORAGE_BUCKET_FALLBACK;
+  const effectiveDatabaseURL = envDatabaseURL || HARDCODED_DATABASE_URL_FALLBACK;
 
-  console.log(`Firebase Admin SDK (admin.ts): Effective values - ProjectId: ${effectiveProjectId}, StorageBucket: ${effectiveStorageBucket}, DatabaseURL: ${effectiveDatabaseURL}`);
+  console.log(`Firebase Admin SDK (admin.ts): Effective config values - ProjectId: ${effectiveProjectId}, StorageBucket: ${effectiveStorageBucket}, DatabaseURL: ${effectiveDatabaseURL}`);
 
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     try {
       console.log('Firebase Admin SDK (admin.ts): Attempting initialization with GOOGLE_APPLICATION_CREDENTIALS...');
       admin.initializeApp({
-        storageBucket: effectiveStorageBucket,
-        databaseURL: effectiveDatabaseURL,
-        projectId: effectiveProjectId, 
+        storageBucket: effectiveStorageBucket, // Use effective value
+        databaseURL: effectiveDatabaseURL,   // Use effective value
+        projectId: effectiveProjectId,       // Use effective value
       });
       adminInstance = admin;
       console.log('Firebase Admin SDK (admin.ts): Successfully initialized using GOOGLE_APPLICATION_CREDENTIALS. Project ID:', adminInstance.app().options.projectId);
@@ -61,7 +70,7 @@ function initializeFirebaseAdminApp() {
   }
   
   if (envProjectId && envClientEmail && envPrivateKey) {
-    console.log('Firebase Admin SDK (admin.ts): Attempting initialization with specific FIREBASE_... environment variables...');
+    console.log('Firebase Admin SDK (admin.ts): Attempting initialization with FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY environment variables...');
     const serviceAccount = {
       projectId: envProjectId,
       clientEmail: envClientEmail,
@@ -72,7 +81,7 @@ function initializeFirebaseAdminApp() {
         credential: admin.credential.cert(serviceAccount),
         storageBucket: effectiveStorageBucket,
         databaseURL: effectiveDatabaseURL,
-        projectId: envProjectId,
+        projectId: envProjectId, // Explicitly pass project ID
       });
       adminInstance = admin;
       console.log('Firebase Admin SDK (admin.ts): Successfully initialized using FIREBASE_... environment variables. Project ID:', adminInstance.app().options.projectId);
@@ -81,37 +90,57 @@ function initializeFirebaseAdminApp() {
       console.error('Firebase Admin SDK (admin.ts): Error initializing with FIREBASE_... environment variables:', e.message, "\nConfig used: Project ID -", envProjectId, "Client Email -", envClientEmail, "Storage Bucket -", effectiveStorageBucket, "Database URL -", effectiveDatabaseURL);
     }
   } else {
-     console.log('Firebase Admin SDK (admin.ts): Not all FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY env vars are set. Trying hardcoded fallback.');
+     console.log('Firebase Admin SDK (admin.ts): Not all required FIREBASE_... environment variables are set (PROJECT_ID, CLIENT_EMAIL, PRIVATE_KEY). Trying hardcoded fallback.');
   }
 
-  console.warn('Firebase Admin SDK (admin.ts): Attempting initialization with HARDCODED fallback credentials. Ensure these are correct for your target project.');
+  console.warn('Firebase Admin SDK (admin.ts): Attempting initialization with HARDCODED fallback credentials.');
+  console.warn(`Firebase Admin SDK (admin.ts): HARDCODED_PROJECT_ID_FALLBACK_TARGET: ${HARDCODED_PROJECT_ID_FALLBACK_TARGET}`);
+  console.warn(`Firebase Admin SDK (admin.ts): HARDCODED_CLIENT_EMAIL_FALLBACK_MISMATCH: ${HARDCODED_CLIENT_EMAIL_FALLBACK_MISMATCH} (This email MUST belong to project ${HARDCODED_PROJECT_ID_FALLBACK_TARGET})`);
+  console.warn(`Firebase Admin SDK (admin.ts): HARDCODED_PRIVATE_KEY_ID_FALLBACK_MISMATCH: ${HARDCODED_PRIVATE_KEY_ID_FALLBACK_MISMATCH} (This key ID MUST belong to project ${HARDCODED_PROJECT_ID_FALLBACK_TARGET})`);
+  
+  if (HARDCODED_PROJECT_ID_FALLBACK_TARGET !== "sathi-app-3vfky" || 
+      !HARDCODED_CLIENT_EMAIL_FALLBACK_MISMATCH.includes("sathi-app-3vfky") ||
+      !HARDCODED_PRIVATE_KEY_ID_FALLBACK_MISMATCH) { // Add check for key ID if you have one for sathi-app-3vfky
+      console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+      console.error("Firebase Admin SDK (admin.ts): CRITICAL MISMATCH in hardcoded fallback credentials!");
+      console.error(`Intended Project ID: ${TARGET_PROJECT_ID}`);
+      console.error(`Hardcoded Client Email is for a different project: ${HARDCODED_CLIENT_EMAIL_FALLBACK_MISMATCH}`);
+      console.error("This WILL cause authentication failures if this fallback is used.");
+      console.error("Please ensure FIREBASE_... environment variables are correctly set for 'sathi-app-3vfky',");
+      console.error("OR provide the correct service account client_email and private_key for 'sathi-app-3vfky' to be hardcoded.");
+      console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+  }
+
   const serviceAccount = {
-    projectId: HARDCODED_PROJECT_ID,
-    clientEmail: HARDCODED_CLIENT_EMAIL,
-    privateKeyId: HARDCODED_PRIVATE_KEY_ID, 
-    privateKey: formatPrivateKey(HARDCODED_PRIVATE_KEY),
+    projectId: HARDCODED_PROJECT_ID_FALLBACK_TARGET,
+    clientEmail: HARDCODED_CLIENT_EMAIL_FALLBACK_MISMATCH,
+    privateKeyId: HARDCODED_PRIVATE_KEY_ID_FALLBACK_MISMATCH, 
+    privateKey: formatPrivateKey(HARDCODED_PRIVATE_KEY_FALLBACK_MISMATCH),
   };
-  console.log("Firebase Admin SDK (admin.ts): Hardcoded service account being used (privateKey redacted):", JSON.stringify({ ...serviceAccount, privateKey: "[REDACTED]" }));
+  
   try {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
-      storageBucket: HARDCODED_STORAGE_BUCKET,
-      databaseURL: HARDCODED_DATABASE_URL,
-      projectId: HARDCODED_PROJECT_ID,
+      storageBucket: HARDCODED_STORAGE_BUCKET_FALLBACK,
+      databaseURL: HARDCODED_DATABASE_URL_FALLBACK,
+      projectId: HARDCODED_PROJECT_ID_FALLBACK_TARGET, // Explicitly pass project ID
     });
     adminInstance = admin;
     console.log('Firebase Admin SDK (admin.ts): Successfully initialized using HARDCODED fallback. Project ID:', adminInstance.app().options.projectId);
+    if (adminInstance.app().options.projectId !== HARDCODED_CLIENT_EMAIL_FALLBACK_MISMATCH.split('@')[1].split('.')[0] && HARDCODED_CLIENT_EMAIL_FALLBACK_MISMATCH !== "your-client-email-for-sathi-app-3vfky@sathi-app-3vfky.iam.gserviceaccount.com" ) {
+        console.warn("Firebase Admin SDK (admin.ts): WARNING - Hardcoded fallback client_email might not match the hardcoded project_id. This can lead to issues.");
+    }
     return;
   } catch (e: any) {
-    console.error('Firebase Admin SDK (admin.ts): Error initializing with HARDCODED fallback:', e.message, "\nHardcoded Service Account used:", JSON.stringify({...serviceAccount, privateKey: "[REDACTED]"}), "Storage Bucket -", HARDCODED_STORAGE_BUCKET, "Database URL -", HARDCODED_DATABASE_URL);
+    console.error('Firebase Admin SDK (admin.ts): Error initializing with HARDCODED fallback:', e.message, "\nHardcoded Service Account used:", JSON.stringify({...serviceAccount, privateKey: "[REDACTED]"}), "Storage Bucket -", HARDCODED_STORAGE_BUCKET_FALLBACK, "Database URL -", HARDCODED_DATABASE_URL_FALLBACK);
   }
 
   console.log('Firebase Admin SDK (admin.ts): Attempting default Application Default Credentials (ADC) initialization as last resort...');
   try {
     admin.initializeApp({
-      storageBucket: effectiveStorageBucket,
-      databaseURL: effectiveDatabaseURL,
-      projectId: effectiveProjectId, 
+      storageBucket: effectiveStorageBucket, // Use effective value from env or target
+      databaseURL: effectiveDatabaseURL,   // Use effective value from env or target
+      projectId: effectiveProjectId,       // Use effective value from env or target
     });
     adminInstance = admin;
     console.log('Firebase Admin SDK (admin.ts): Successfully initialized using default ADC. Project ID:', adminInstance.app().options.projectId);
@@ -124,7 +153,7 @@ function initializeFirebaseAdminApp() {
     'Firebase Admin SDK (admin.ts): FAILED TO INITIALIZE. All methods failed. ' +
     'Document upload and other admin operations will not work. Please check your configuration and server logs.'
   );
-  adminInstance = null;
+  adminInstance = null; // Ensure adminInstance is explicitly null if all init fails
 }
 
 initializeFirebaseAdminApp();
@@ -135,3 +164,5 @@ export const adminStorage = adminInstance?.storage();
 export const adminRtdb = adminInstance?.database(); 
 
 export default adminInstance;
+
+    

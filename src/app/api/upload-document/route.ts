@@ -4,18 +4,25 @@ import adminInstance, { adminDb, adminStorage } from '@/lib/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
-  console.log('/api/upload-document: POST request received.');
+  try { // Outermost try-catch to ensure a JSON response is always attempted
+    console.log('/api/upload-document: POST request received.');
 
-  if (!adminInstance || !adminDb || !adminStorage || !adminStorage.app) {
-    console.error('/api/upload-document: Firebase Admin SDK not initialized properly or storage component missing. adminInstance, adminDb, or adminStorage (or adminStorage.app) is null/undefined.');
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized properly. Check server logs for details.' }, { status: 500 });
-  }
-  
-  const adminAppProjectId = adminInstance.app.options.projectId;
-  console.log(`/api/upload-document: Firebase Admin SDK initialized for project ID: ${adminAppProjectId}`);
+    if (!adminInstance) {
+      console.error('/api/upload-document: CRITICAL - adminInstance is null. Firebase Admin SDK did not initialize.');
+      return NextResponse.json({ error: 'Firebase Admin SDK failed to initialize. Check server logs for details on admin.ts initialization process.' }, { status: 500 });
+    }
+    if (!adminDb) {
+      console.error('/api/upload-document: CRITICAL - adminDb is not available. Firestore service might not be initialized on adminInstance.');
+      return NextResponse.json({ error: 'Firestore Admin service not available. Check server logs.' }, { status: 500 });
+    }
+    if (!adminStorage || !adminStorage.app) {
+      console.error('/api/upload-document: CRITICAL - adminStorage or adminStorage.app is not available. Storage service might not be initialized on adminInstance.');
+      return NextResponse.json({ error: 'Storage Admin service not available. Check server logs.' }, { status: 500 });
+    }
+    
+    const adminAppProjectId = adminInstance.app.options.projectId;
+    console.log(`/api/upload-document: Firebase Admin SDK seems initialized. Operating with Project ID: ${adminAppProjectId}`);
 
-
-  try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const uploaderContext = formData.get('uploaderContext') as string || 'unknown'; 
@@ -26,8 +33,15 @@ export async function POST(request: NextRequest) {
     }
     console.log(`/api/upload-document: File received: ${file.name}, size: ${file.size}, type: ${file.type}, context: ${uploaderContext}`);
 
-    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "sathi-app-3vfky.firebasestorage.app";
-    console.log(`/api/upload-document: Attempting to use explicit storage bucket: ${bucketName}`);
+    const envBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+    const fallbackBucketName = "sathi-app-3vfky.firebasestorage.app"; // Ensure this matches your target project
+    const bucketName = envBucketName || fallbackBucketName;
+
+    if (!bucketName) {
+        console.error('/api/upload-document: CRITICAL - Storage bucket name is undefined or empty. Cannot proceed.');
+        return NextResponse.json({ error: 'Storage bucket name is not configured on the server. Please check environment variables (NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) or server configuration.' }, { status: 500 });
+    }
+    console.log(`/api/upload-document: Attempting to use storage bucket: ${bucketName}. (Source: ${envBucketName ? 'env variable' : 'fallback'})`);
     
     const bucket = adminStorage.bucket(bucketName);
     console.log(`/api/upload-document: Successfully got bucket object for: ${bucket.name}`);
@@ -85,21 +99,24 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('/api/upload-document: Critical error in POST handler:', error);
+    console.error('/api/upload-document: CATASTROPHIC error in POST handler:', error);
     
     let errorMessage = 'Failed to upload file due to an unexpected internal server error.';
     let errorCode = 'UNKNOWN_ERROR';
-    let errorDetails = error instanceof Error ? error.stack : JSON.stringify(error, (key, value) =>
-      typeof value === 'bigint' ? value.toString() : value , 2); 
-
-    if (error.code && error.message) { 
+    // Attempt to get more details if it's a FirebaseError-like object
+    if (error.code && typeof error.message === 'string') { 
         errorMessage = error.message;
-        errorCode = error.code;
+        errorCode = String(error.code); // Ensure code is string
         console.error(`/api/upload-document: Firebase/GCP Error Code: ${error.code}, Message: ${error.message}`);
     } else if (error instanceof Error) {
         errorMessage = error.message;
+    } else if (typeof error === 'string') {
+        errorMessage = error;
     }
     
+    const errorDetails = error instanceof Error ? error.stack : JSON.stringify(error, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value , 2); 
+
     if (error.cause) {
       console.error('/api/upload-document: Underlying cause:', error.cause);
     }
@@ -111,3 +128,5 @@ export async function POST(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
+    
