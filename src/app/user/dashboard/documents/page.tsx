@@ -12,6 +12,7 @@ import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/
 import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils"; // Added missing import
 
 interface SharedDocument {
   id: string;
@@ -34,6 +35,7 @@ export default function UserSharedDocumentsPage() {
       setError("You must be logged in to view shared documents.");
       setIsLoading(false);
       setDocuments([]);
+      console.log("UserSharedDocumentsPage: fetchDocuments called but no user is authenticated.");
       return;
     }
     if (!db) {
@@ -41,6 +43,7 @@ export default function UserSharedDocumentsPage() {
       setIsLoading(false);
       setDocuments([]);
       toast({ title: "Error", description: "Database connection failed.", variant: "destructive" });
+      console.error("UserSharedDocumentsPage: Firestore 'db' instance is null.");
       return;
     }
 
@@ -52,7 +55,7 @@ export default function UserSharedDocumentsPage() {
       const documentsCollection = collection(db, "uploadedDocuments");
       const q = query(
         documentsCollection,
-        where("uploaderContext", "==", "admin"), // Only fetch documents uploaded by admin
+        where("uploaderContext", "==", "admin"), 
         orderBy("uploadedAt", "desc")
       );
       const querySnapshot = await getDocs(q);
@@ -61,13 +64,34 @@ export default function UserSharedDocumentsPage() {
 
       const fetchedDocs = querySnapshot.docs.map((doc) => {
         const data = doc.data();
+        // Handle potential missing fields or incorrect timestamp format gracefully
+        let uploadedAtDate: Date | null = null;
+        if (data.uploadedAt) {
+          if (data.uploadedAt instanceof Timestamp) {
+            uploadedAtDate = data.uploadedAt.toDate();
+          } else if (typeof data.uploadedAt === 'string') {
+            // Attempt to parse if it's a string, might be ISO
+            const parsedDate = new Date(data.uploadedAt);
+            if (!isNaN(parsedDate.getTime())) {
+              uploadedAtDate = parsedDate;
+            } else {
+              console.warn(`Invalid date string for uploadedAt: ${data.uploadedAt} for doc ID ${doc.id}`);
+            }
+          } else if (data.uploadedAt.seconds && typeof data.uploadedAt.seconds === 'number') {
+            // Handle Firestore Timestamp-like object if not an instance (e.g., from JSON)
+             uploadedAtDate = new Timestamp(data.uploadedAt.seconds, data.uploadedAt.nanoseconds || 0).toDate();
+          } else {
+            console.warn(`Unexpected uploadedAt format for doc ID ${doc.id}:`, data.uploadedAt);
+          }
+        }
+
         return {
           id: doc.id,
           originalFileName: data.originalFileName || "Unknown Filename",
           downloadUrl: data.downloadUrl || "#",
           contentType: data.contentType || "application/octet-stream",
           size: data.size || 0,
-          uploadedAt: data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : (data.uploadedAt || null),
+          uploadedAt: uploadedAtDate, // Store as Date object
           uploaderContext: data.uploaderContext || "unknown",
         } as SharedDocument;
       });
@@ -104,11 +128,19 @@ export default function UserSharedDocumentsPage() {
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log("UserSharedDocumentsPage: Auth state changed. User:", user ? user.uid : 'null');
-      setCurrentUser(user);
-      fetchDocuments(user); // Fetch documents once auth state is known
+      setCurrentUser(user); // Set current user
+      if (user) {
+        fetchDocuments(user); // Fetch documents if user is logged in
+      } else {
+        // Handle user being logged out (e.g., clear documents, show message)
+        setDocuments([]);
+        setIsLoading(false);
+        setError("Please log in to view shared documents.");
+      }
     });
-    return () => unsubscribe();
-  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
+    return () => unsubscribe(); // Cleanup subscription on component unmount
+  }, []); 
+
 
   const getFileIconElement = (contentType: string) => {
     if (contentType.startsWith("image/")) return <FileIcon className="h-5 w-5 text-purple-500" aria-label="Image file" />;

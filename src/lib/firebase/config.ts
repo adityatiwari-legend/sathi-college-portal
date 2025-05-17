@@ -9,7 +9,7 @@ import { getDatabase } from "firebase/database";
 
 // Your web app's Firebase configuration
 const firebaseConfig: FirebaseOptions = {
-  apiKey: "C6DmoepqC4qLqXGhju7LTdLr1dkbi0bf7Uc8yJcM",
+  apiKey: "AIzaSyB73DZNfXqvoPs3EV3ExtcSz2wttJmjpUo",
   authDomain: "sathi-app-3vfky.firebaseapp.com",
   databaseURL: "https://sathi-app-3vfky-default-rtdb.firebaseio.com/",
   projectId: "sathi-app-3vfky",
