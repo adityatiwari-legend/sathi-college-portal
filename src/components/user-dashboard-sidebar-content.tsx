@@ -11,9 +11,10 @@ import {
   LogOut,
   Building2,
   BookOpen,
-  ListChecks, // Changed from Archive
+  ListChecks, 
   ClipboardList,
-  FolderArchive, // For Shared Documents
+  FolderArchive,
+  Users, // Added missing import
 } from "lucide-react";
 
 import {
