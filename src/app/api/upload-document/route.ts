@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminApp, getAdminDb, getAdminStorage } from '@/lib/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -12,10 +11,17 @@ export async function POST(request: NextRequest) {
     const adminStorageInstance = getAdminStorage();
 
     if (!adminApp) {
-      console.error('/api/upload-document: CRITICAL - Firebase Admin App instance is NOT available. Check admin.ts logs.');
+      console.error('/api/upload-document: CRITICAL - Firebase Admin App instance is NOT available.');
       return NextResponse.json({ error: { message: 'Internal Server Error: Firebase Admin App failed to initialize.', code: 'ADMIN_APP_UNAVAILABLE' }}, { status: 500 });
     }
-    console.log(`/api/upload-document: Firebase Admin App obtained. Project ID from app options: ${adminApp.options.projectId}`);
+    
+    const adminAppProjectId = adminApp.options.projectId;
+    if (!adminAppProjectId) {
+        console.error('/api/upload-document: CRITICAL - Firebase Admin App projectId is undefined.');
+        return NextResponse.json({ error: { message: 'Internal Server Error: Firebase Admin App projectId is undefined.', code: 'ADMIN_PROJECT_ID_UNAVAILABLE' }}, { status: 500 });
+    }
+    console.log(`/api/upload-document: Firebase Admin App obtained. Project ID: ${adminAppProjectId}`);
+
 
     if (!adminDbInstance) {
       console.error('/api/upload-document: CRITICAL - Firestore Admin service (adminDbInstance) not available.');
@@ -37,19 +43,45 @@ export async function POST(request: NextRequest) {
     console.log(`/api/upload-document: File: ${file.name}, Size: ${file.size}, Type: ${file.type}, Context: ${uploaderContext}`);
 
     const envBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-    const fallbackBucketName = "sathi-app-3vfky.firebasestorage.app";
-    const bucketName = envBucketName || fallbackBucketName;
+    // Fallback derived from admin app's project ID if env var is not set
+    const derivedDefaultBucketName = `${adminAppProjectId}.appspot.com`;
+    const fallbackBucketName = "sathi-app-3vfky.firebasestorage.app"; // Previous hardcoded
+    
+    let bucketName = envBucketName;
+    let bucketSource = "environment variable (NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET)";
 
     if (!bucketName) {
-        console.error('/api/upload-document: CRITICAL - Storage bucket name is undefined. Check NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET or hardcoded fallback.');
+        bucketName = derivedDefaultBucketName;
+        bucketSource = "derived from Admin SDK projectId";
+    }
+    // If derived also seems problematic, use the ultimate fallback
+    if (!bucketName || bucketName.includes("YOUR_PROJECT_ID")) { // Check against placeholder
+        bucketName = fallbackBucketName;
+        bucketSource = "hardcoded fallback (sathi-app-3vfky.firebasestorage.app)";
+    }
+
+
+    if (!bucketName) {
+        console.error('/api/upload-document: CRITICAL - Storage bucket name is undefined and could not be derived. Check NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET or Admin SDK projectId.');
         return NextResponse.json({ error: { message: 'Storage bucket name not configured on server.', code: 'BUCKET_NAME_MISSING' } }, { status: 500 });
     }
-    console.log(`/api/upload-document: Using storage bucket: ${bucketName}. (Source: ${envBucketName ? 'env variable' : 'fallback'})`);
+    console.log(`/api/upload-document: Using storage bucket: ${bucketName}. (Source: ${bucketSource})`);
     
     const bucket = adminStorageInstance.bucket(bucketName);
     console.log(`/api/upload-document: Bucket object obtained for: ${bucket.name}`);
     
-    const basePath = uploaderContext === 'admin' ? 'admin_uploads' : 'user_uploads';
+    let basePath = 'general_uploads'; // Default path
+    if (uploaderContext === 'admin') {
+      basePath = 'admin_uploads';
+    } else if (uploaderContext === 'timetable') {
+      basePath = 'timetables';
+    } else if (uploaderContext === 'user_document') { // Example for potential future user-specific uploads
+      // For user uploads, you'd typically include userId in the path
+      // const userId = formData.get('userId'); // Assuming userId is passed for user uploads
+      // basePath = `user_uploads/${userId || 'unknown_user'}`;
+      basePath = 'user_uploads'; // For now, keep it simple
+    }
+
     const fileNameInStorage = `${basePath}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
     console.log(`/api/upload-document: Target storage path: ${fileNameInStorage}`);
     
@@ -71,12 +103,12 @@ export async function POST(request: NextRequest) {
     });
 
     console.log('/api/upload-document: File uploaded. Getting signed URL...');
-    const [url] = await fileUpload.getSignedUrl({ action: 'read', expires: '03-09-2491' });
+    const [url] = await fileUpload.getSignedUrl({ action: 'read', expires: '03-09-2491' }); // Long expiry
     console.log(`/api/upload-document: Signed URL: ${url}`);
 
     console.log('/api/upload-document: Adding document metadata to Firestore "uploadedDocuments"...');
     const docRef = await adminDbInstance.collection('uploadedDocuments').add({
-      uploaderContext: uploaderContext,
+      uploaderContext: uploaderContext, // Save the context
       originalFileName: file.name,
       storagePath: fileNameInStorage,
       downloadUrl: url,
@@ -84,7 +116,7 @@ export async function POST(request: NextRequest) {
       size: file.size,
       uploadedAt: FieldValue.serverTimestamp(),
     });
-    console.log(`/api/upload-document: Firestore document created: ${docRef.id}`);
+    console.log(`/api/upload-document: Firestore document created: ${docRef.id} with context: ${uploaderContext}`);
 
     return NextResponse.json({
       message: 'File uploaded successfully',
@@ -93,12 +125,16 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('/api/upload-document: CATASTROPHIC error in POST handler:', error);
+    console.error('/api/upload-document: CATASTROPHIC error in POST handler:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
     const errorMessage = error.message || 'Failed to upload file due to an unexpected internal server error.';
-    const errorCode = String(error.code || 'UNKNOWN_API_ERROR');
-    const errorDetails = error instanceof Error ? error.stack : JSON.stringify(error, (key, value) =>
-      typeof value === 'bigint' ? value.toString() : value , 2);
+    const errorCode = String(error.code || error.name || 'UNKNOWN_API_ERROR');
     
-    return NextResponse.json({ error: { message: errorMessage, code: errorCode }, details: errorDetails }, { status: 500 });
+    return NextResponse.json({ 
+      error: { 
+        message: errorMessage, 
+        code: errorCode,
+        details: error.stack // Include stack for more debug info
+      } 
+    }, { status: 500 });
   }
 }

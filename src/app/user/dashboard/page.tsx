@@ -1,9 +1,8 @@
-
 "use client"; 
 
 import * as React from "react"; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { FileText, UserCircle2, BookOpen, ListChecks, FolderArchive, ClipboardList } from "lucide-react";
+import { FileText, UserCircle2, BookOpen, ListChecks, FolderArchive, ClipboardList, Clock } from "lucide-react"; // Added Clock
 import Link from "next/link";
 import { onAuthStateChanged, User } from "firebase/auth"; 
 import { auth } from "@/lib/firebase/config"; 
@@ -111,6 +110,23 @@ export default function UserDashboardPage() {
             </p>
             <Link href="/user/dashboard/documents" className="text-sm font-medium text-primary hover:underline">
               View Documents &rarr;
+            </Link>
+          </CardContent>
+        </Card>
+
+         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg font-medium">
+              View Timetable
+            </CardTitle>
+            <Clock className="h-6 w-6 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Check the latest college timetables.
+            </p>
+            <Link href="/user/dashboard/view-timetable" className="text-sm font-medium text-primary hover:underline">
+              View Timetable &rarr;
             </Link>
           </CardContent>
         </Card>

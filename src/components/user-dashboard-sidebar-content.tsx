@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from "react";
@@ -14,7 +13,8 @@ import {
   ListChecks, 
   ClipboardList,
   FolderArchive,
-  Users, // Added missing import
+  Users,
+  Clock, // Added Clock icon
 } from "lucide-react";
 
 import {
@@ -123,6 +123,7 @@ const navItems: NavItemProps[] = [
   },
   { href: "/user/dashboard/my-submitted-forms", icon: <ListChecks />, label: "My Submitted Forms", tooltip: "View Your Submitted Forms" },
   { href: "/user/dashboard/documents", icon: <FolderArchive />, label: "Shared Documents", tooltip: "View Shared Documents" },
+  { href: "/user/dashboard/view-timetable", icon: <Clock />, label: "View Timetable", tooltip: "View College Timetables" },
 ];
 
 export function UserDashboardSidebarContent() {
@@ -130,7 +131,6 @@ export function UserDashboardSidebarContent() {
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("Sidebar onAuthStateChanged - User:", user?.displayName, "| Email:", user?.email, "| PhotoURL:", user?.photoURL);
       setCurrentUser(user);
     });
     return () => unsubscribe();

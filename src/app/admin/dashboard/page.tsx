@@ -1,4 +1,3 @@
-
 import {
   Card,
   CardContent,
@@ -6,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FileText, Users, Settings, Archive, BookOpen } from "lucide-react"; // Added BookOpen
+import { FileText, Users, Settings, Archive, BookOpen, UploadCloud, Clock } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminDashboardPage() { 
@@ -54,6 +53,39 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg font-medium">
+              Upload General Document
+            </CardTitle>
+            <UploadCloud className="h-6 w-6 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Upload general documents to be shared with users.
+            </p>
+            <Link href="/admin/dashboard/upload-document" className="text-sm font-medium text-primary hover:underline">
+              Upload Document &rarr;
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg font-medium">
+              Upload Timetable
+            </CardTitle>
+            <Clock className="h-6 w-6 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Upload and manage college timetables (PDF format).
+            </p>
+            <Link href="/admin/dashboard/upload-timetable" className="text-sm font-medium text-primary hover:underline">
+              Upload Timetable &rarr;
+            </Link>
+          </CardContent>
+        </Card>
 
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -64,7 +96,7 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Administer user accounts, roles, and permissions within the portal. (Placeholder)
+              Administer user accounts, roles, and permissions. (Placeholder)
             </p>
              <Link href="#" className="text-sm font-medium text-primary hover:underline text-muted-foreground/50 cursor-not-allowed" aria-disabled="true" tabIndex={-1}>
               Manage Users &rarr;
@@ -121,10 +153,17 @@ export default function AdminDashboardPage() {
               </Link>
             </div>
              <div className="p-4 border rounded-lg bg-card/50">
-              <h3 className="font-semibold mb-2">Upload Documents</h3>
+              <h3 className="font-semibold mb-2">Upload General Docs</h3>
               <p className="text-sm text-muted-foreground">Manage documents shared with users.</p>
                <Link href="/admin/dashboard/upload-document" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
                 Manage Uploads &rarr;
+              </Link>
+            </div>
+            <div className="p-4 border rounded-lg bg-card/50">
+              <h3 className="font-semibold mb-2">Upload Timetables</h3>
+              <p className="text-sm text-muted-foreground">Upload and manage PDF timetables.</p>
+               <Link href="/admin/dashboard/upload-timetable" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
+                Manage Timetables &rarr;
               </Link>
             </div>
           </div>

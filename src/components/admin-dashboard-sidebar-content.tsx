@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from "react";
@@ -14,7 +13,8 @@ import {
   BookOpen,
   UploadCloud,
   Archive,
-  PlusCircle, // Still can be used for the custom form
+  PlusCircle,
+  Clock, // Added Clock icon
 } from "lucide-react";
 
 import {
@@ -99,7 +99,8 @@ const navItems: NavItemProps[] = [
     ],
   },
   { href: "/admin/dashboard/all-submitted-forms", icon: <Archive />, label: "All Submissions", tooltip: "View All Submitted Forms" },
-  { href: "/admin/dashboard/upload-document", icon: <UploadCloud />, label: "Upload Document", tooltip: "Manage Uploaded Documents" },
+  { href: "/admin/dashboard/upload-document", icon: <UploadCloud />, label: "Upload Document", tooltip: "Manage General Uploaded Documents" },
+  { href: "/admin/dashboard/upload-timetable", icon: <Clock />, label: "Upload Timetable", tooltip: "Manage College Timetables" },
   { href: "/admin/dashboard/settings", icon: <Settings />, label: "Settings", tooltip: "App Settings" },
 ];
 
@@ -124,7 +125,7 @@ export function AdminDashboardSidebarContent() {
       <SidebarFooter className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src="https://picsum.photos/id/237/200/200" alt="Admin Avatar" data-ai-hint="admin avatar"/>
+            <AvatarImage src="https://placehold.co/200x200.png" alt="Admin Avatar" data-ai-hint="admin avatar"/>
             <AvatarFallback>AD</AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
