@@ -11,9 +11,9 @@ import {
   LogOut,
   Building2,
   BookOpen,
-  Users, 
-  ListChecks,
-  ClipboardList, // Icon for custom form
+  ListChecks, // Changed from Archive
+  ClipboardList,
+  FolderArchive, // For Shared Documents
 } from "lucide-react";
 
 import {
@@ -64,8 +64,8 @@ const NavItem = ({ href, icon, label, tooltip, disabled = false, subItems }: Nav
         </SidebarMenuButton>
         <SidebarMenuSub>
           {subItems.map((item) => (
-            <SidebarMenuSubItem key={item.href}>
-              <Link href={item.href} passHref legacyBehavior>
+             <SidebarMenuSubItem key={item.href}>
+               <Link href={item.href} passHref legacyBehavior>
                 <SidebarMenuSubButton 
                   isActive={pathname === item.href || pathname.startsWith(item.href)}
                   disabled={item.disabled}
@@ -110,9 +110,9 @@ const navItems: NavItemProps[] = [
   { href: "/user/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "User Dashboard" },
   { href: "/user/dashboard/profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile" }, 
   {
-    href: "/user/dashboard/forms", // This is the parent for forms
+    href: "/user/dashboard/forms", 
     icon: <FileText />,
-    label: "College Forms", // Changed label for clarity
+    label: "College Forms", 
     tooltip: "Access College Forms",
     subItems: [
       { href: "/user/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Form" },
@@ -120,7 +120,8 @@ const navItems: NavItemProps[] = [
       { href: "/user/dashboard/forms/custom-form", icon: <ClipboardList />, label: "Custom Form", tooltip: "Fill Custom Form" },
     ],
   },
-  { href: "/user/dashboard/my-activity", icon: <ListChecks />, label: "My Activity", tooltip: "View Submissions & Docs" },
+  { href: "/user/dashboard/my-submitted-forms", icon: <ListChecks />, label: "My Submitted Forms", tooltip: "View Your Submitted Forms" },
+  { href: "/user/dashboard/documents", icon: <FolderArchive />, label: "Shared Documents", tooltip: "View Shared Documents" },
 ];
 
 export function UserDashboardSidebarContent() {

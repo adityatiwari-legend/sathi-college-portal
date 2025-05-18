@@ -2,31 +2,21 @@
 "use client"; 
 
 import * as React from "react"; 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { FileText, UserCircle2, BookOpen, ListChecks, Save, Download as DownloadIcon, Loader2, ClipboardList } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { FileText, UserCircle2, BookOpen, ListChecks, FolderArchive, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { onAuthStateChanged, User } from "firebase/auth"; 
-import { auth, rtdb } from "@/lib/firebase/config"; 
+import { auth } from "@/lib/firebase/config"; 
 import { Skeleton } from "@/components/ui/skeleton"; 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
-import { ref, set, get, child } from "firebase/database";
 
 export default function UserDashboardPage() {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [rtdbMessage, setRtdbMessage] = React.useState("");
-  const [loadedRtdbMessage, setLoadedRtdbMessage] = React.useState<string | null>(null);
-  const [isRtdbLoading, setIsRtdbLoading] = React.useState(false);
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setIsLoading(false);
-      if (user) {
-        handleLoadFromRtdb(user); 
-      }
     });
     return () => unsubscribe();
   }, []);
@@ -36,64 +26,6 @@ export default function UserDashboardPage() {
     : currentUser?.displayName 
       ? `Welcome back, ${currentUser.displayName}!`
       : "Welcome to your Sathi College Portal.";
-
-  const handleSaveToRtdb = async () => {
-    if (!currentUser || !rtdb) {
-      toast({ title: "Error", description: "User not authenticated or RTDB not available.", variant: "destructive" });
-      return;
-    }
-    if (!rtdbMessage.trim()) {
-      toast({ title: "Input Error", description: "Message cannot be empty.", variant: "destructive"});
-      return;
-    }
-    setIsRtdbLoading(true);
-    try {
-      const userMessageRef = ref(rtdb, `userRtdbTestData/${currentUser.uid}/message`);
-      await set(userMessageRef, rtdbMessage);
-      toast({ title: "Success", description: "Message saved to Realtime Database!" });
-      setRtdbMessage(""); 
-    } catch (error: any) {
-      console.error("Error saving to RTDB:", error);
-      toast({ title: "RTDB Error", description: error.message || "Failed to save message.", variant: "destructive" });
-    } finally {
-      setIsRtdbLoading(false);
-    }
-  };
-
-  const handleLoadFromRtdb = async (userToLoadFor?: User | null) => {
-    const targetUser = userToLoadFor || currentUser;
-    if (!targetUser || !rtdb) {
-      if (!userToLoadFor) { 
-          toast({ title: "Error", description: "User not authenticated or RTDB not available.", variant: "destructive" });
-      }
-      return;
-    }
-    setIsRtdbLoading(true);
-    setLoadedRtdbMessage(null); 
-    try {
-      const dbRef = ref(rtdb);
-      const snapshot = await get(child(dbRef, `userRtdbTestData/${targetUser.uid}/message`));
-      if (snapshot.exists()) {
-        setLoadedRtdbMessage(snapshot.val());
-        if (!userToLoadFor) { 
-             toast({ title: "Success", description: "Message loaded from Realtime Database." });
-        }
-      } else {
-        setLoadedRtdbMessage("No message found in RTDB.");
-         if (!userToLoadFor) {
-            toast({ title: "Info", description: "No message found for your user in RTDB." });
-         }
-      }
-    } catch (error: any) {
-      console.error("Error loading from RTDB:", error);
-      setLoadedRtdbMessage("Failed to load message.");
-      if (!userToLoadFor) {
-        toast({ title: "RTDB Error", description: error.message || "Failed to load message.", variant: "destructive" });
-      }
-    } finally {
-      setIsRtdbLoading(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -129,7 +61,7 @@ export default function UserDashboardPage() {
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-medium">
-              College Forms
+              Available Forms
             </CardTitle>
             <FileText className="h-6 w-6 text-accent" /> 
           </CardHeader>
@@ -137,7 +69,6 @@ export default function UserDashboardPage() {
             <p className="text-sm text-muted-foreground mb-4">
               Submit Admission, Course Registration, and other available forms.
             </p>
-            {/* This link could go to a general forms listing page if you create one, or directly to admission if it's primary */}
             <Link href="/user/dashboard/forms/admission" className="text-sm font-medium text-primary hover:underline mr-2">
               Admission Form &rarr;
             </Link>
@@ -153,53 +84,38 @@ export default function UserDashboardPage() {
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-medium">
-              My Activity
+              My Submitted Forms
             </CardTitle>
             <ListChecks className="h-6 w-6 text-accent" />
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Track your submitted forms and view shared documents.
+              Track the status and details of your submitted forms.
             </p>
-            <Link href="/user/dashboard/my-activity" className="text-sm font-medium text-primary hover:underline">
-              View Activity &rarr;
+            <Link href="/user/dashboard/my-submitted-forms" className="text-sm font-medium text-primary hover:underline">
+              View My Forms &rarr;
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg font-medium">
+              Shared Documents
+            </CardTitle>
+            <FolderArchive className="h-6 w-6 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Access documents and resources shared by the college administration.
+            </p>
+            <Link href="/user/dashboard/documents" className="text-sm font-medium text-primary hover:underline">
+              View Documents &rarr;
             </Link>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle>Realtime Database Test</CardTitle>
-          <CardDescription>
-            Test saving and loading a message to/from Firebase Realtime Database.
-            Ensure your RTDB rules allow reads/writes for authenticated users under `userRtdbTestData/{'{userId}'}/message`.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Enter a message"
-              value={rtdbMessage}
-              onChange={(e) => setRtdbMessage(e.target.value)}
-              disabled={isRtdbLoading}
-            />
-            <Button onClick={handleSaveToRtdb} disabled={isRtdbLoading || !rtdbMessage.trim()}>
-              {isRtdbLoading ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4" />}
-              Save
-            </Button>
-          </div>
-          <Button onClick={() => handleLoadFromRtdb()} variant="outline" disabled={isRtdbLoading}>
-            {isRtdbLoading ? <Loader2 className="animate-spin" /> : <DownloadIcon className="h-4 w-4" />}
-            Load Message
-          </Button>
-          {loadedRtdbMessage !== null && (
-            <p className="text-sm text-muted-foreground p-3 border rounded-md bg-secondary">
-              <strong>Loaded Message:</strong> {loadedRtdbMessage}
-            </p>
-          )}
-        </CardContent>
-      </Card>
 
       <Card className="shadow-lg">
         <CardHeader>
