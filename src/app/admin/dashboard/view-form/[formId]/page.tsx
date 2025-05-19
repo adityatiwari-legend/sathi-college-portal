@@ -81,7 +81,7 @@ export default function ViewFormDetailsPage() {
       } catch {
         displayValue = "[Object]";
       }
-    } else if (typeof value === 'string' && (key === 'submittedAt' || key === 'registeredAt' || key === 'uploadedAt' || key === 'dateOfBirth')) {
+    } else if (typeof value === 'string' && (label === 'submittedAt' || label === 'registeredAt' || label === 'uploadedAt' || label === 'dateOfBirth')) {
        try {
          displayValue = format(new Date(value), "PP pp");
        } catch (e) {
