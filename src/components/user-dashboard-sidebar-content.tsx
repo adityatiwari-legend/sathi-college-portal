@@ -3,20 +3,19 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FileText,
   UserCircle2,
   LogOut,
-  Building2,
   BookOpen,
   ListChecks, 
   ClipboardList,
   FolderArchive,
-  Users, // Keep for Admission Form icon in sub-menu
-  CalendarDays, // Changed from Clock for Timetable for better semantics
-  Settings // Added if profile link is considered a setting
+  Users, 
+  CalendarDays, 
 } from "lucide-react";
 
 import {
@@ -120,7 +119,7 @@ const navItems: NavItemProps[] = [
     subItems: [
       { href: "/user/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Form" },
       { href: "/user/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Form" },
-      { href: "/user/dashboard/forms/custom-form", icon: <ClipboardList />, label: "Custom Inquiry", tooltip: "Fill Custom Form" },
+      { href: "/user/dashboard/forms/custom-form", icon: <ClipboardList />, label: "Custom Form", tooltip: "Fill Custom Form" },
     ],
   },
   { href: "/user/dashboard/my-submitted-forms", icon: <ListChecks />, label: "My Submitted Forms", tooltip: "Track Your Form Submissions" },
@@ -165,7 +164,14 @@ export function UserDashboardSidebarContent() {
     <>
       <SidebarHeader className="p-4">
         <Link href="/user/dashboard" className="flex items-center gap-2">
-          <Building2 className="h-8 w-8 text-primary" />
+          <Image 
+            src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" 
+            alt="Sathi Portal Logo" 
+            width={32} 
+            height={32}
+            className="h-8 w-8"
+            data-ai-hint="university logo"
+          />
           <h2 className="text-xl font-semibold tracking-tight text-primary">
             Sathi Portal
           </h2>
@@ -193,7 +199,7 @@ export function UserDashboardSidebarContent() {
             </span>
           </div>
           <Button variant="ghost" size="icon" className="ml-auto text-sidebar-foreground/70 hover:text-sidebar-foreground" asChild>
-            <Link href="/login"> {/* Should ideally be a logout button if user is logged in */}
+            <Link href="/login"> 
               <LogOut className="h-5 w-5" />
             </Link>
           </Button>
@@ -202,5 +208,3 @@ export function UserDashboardSidebarContent() {
     </>
   );
 }
-
-    
