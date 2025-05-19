@@ -16,18 +16,18 @@ import {
   ListChecks, 
   FolderArchive, 
   ClipboardList, 
-  Clock,
+  CalendarDays,
   Bell,
   Settings,
   Edit3,
-  Download,
-  CalendarDays
+  Download
 } from "lucide-react";
 import Link from "next/link";
 import { onAuthStateChanged, User } from "firebase/auth"; 
 import { auth } from "@/lib/firebase/config"; 
 import { Skeleton } from "@/components/ui/skeleton"; 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils"; // Added this import
 
 interface DashboardCardProps {
   title: string;
@@ -162,7 +162,7 @@ export default function UserDashboardPage() {
             ]}
           />
           <DashboardCard
-            title="My Submissions"
+            title="My Submitted Forms"
             description="Track your submitted forms and applications."
             icon={<ListChecks className="h-6 w-6" />}
             href="/user/dashboard/my-submitted-forms"
