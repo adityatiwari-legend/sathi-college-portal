@@ -3,11 +3,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, AlertTriangle, RefreshCw, ListChecks, FileText, BookMarked } from "lucide-react";
+import { ArrowLeft, Loader2, AlertTriangle, RefreshCw, FileText, BookMarked, ClipboardList, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { auth, db } from "@/lib/firebase/config";
+import { auth, db, app as firebaseApp } from "@/lib/firebase/config"; // Corrected import: app as firebaseApp
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
@@ -20,7 +20,7 @@ interface SubmittedForm {
   submittedAt: Date | null;
   details?: string; 
   status?: string;
-  formId?: string; // For custom forms
+  formId?: string; 
 }
 
 export default function MySubmittedFormsPage() {
@@ -29,8 +29,12 @@ export default function MySubmittedFormsPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
-  const fetchSubmittedForms = async (user: User | null) => {
-    console.log("MySubmittedFormsPage: fetchSubmittedForms called. User:", user ? user.uid : "null");
+  const fetchSubmittedForms = React.useCallback(async (user: User | null) => {
+    console.log("MySubmittedFormsPage: fetchSubmittedForms called. User:", user ? user.uid : 'null');
+    console.log("MySubmittedFormsPage: auth.currentUser at fetch start:", auth.currentUser ? auth.currentUser.uid : "null");
+    console.log("MySubmittedFormsPage: Firebase app name:", firebaseApp ? firebaseApp.name : "Firebase app not initialized"); // Used imported firebaseApp
+    console.log("MySubmittedFormsPage: Firestore db instance:", db ? "Available" : "NOT AVAILABLE");
+    
     if (!user) {
       setError("Please log in to view your submitted forms.");
       setIsLoading(false);
@@ -46,91 +50,87 @@ export default function MySubmittedFormsPage() {
 
     setIsLoading(true);
     setError(null);
+
+    if (user) {
+      try {
+        console.log(`MySubmittedFormsPage: Attempting to force token refresh for user: ${user.uid}`);
+        await user.getIdToken(true); 
+        console.log(`MySubmittedFormsPage: Token refreshed successfully for user: ${user.uid}`);
+      } catch (tokenError: any) {
+        console.error(`MySubmittedFormsPage: Failed to refresh token for user ${user.uid}:`, JSON.stringify(tokenError, Object.getOwnPropertyNames(tokenError)));
+        setError(`Authentication issue: Could not refresh session (Code: ${tokenError.code || 'UNKNOWN'}). Please try logging out and back in.`);
+        setIsLoading(false);
+        setSubmittedForms([]);
+        return;
+      }
+    }
+
+    const forms: SubmittedForm[] = [];
+    const collectionsToFetch = [
+      { name: "admissionForms", type: "Admission", dateField: "submittedAt" },
+      { name: "courseRegistrations", type: "Course Registration", dateField: "registeredAt" },
+      { name: "customFormSubmissions", type: "Custom Form", dateField: "submittedAt" },
+    ] as const;
+
     try {
-      const forms: SubmittedForm[] = [];
+      for (const formConfig of collectionsToFetch) {
+        console.log(`MySubmittedFormsPage: Querying '${formConfig.name}' for user: ${user.uid}`);
+        const formCollection = collection(db, formConfig.name);
+        const q = query(
+          formCollection,
+          where("userId", "==", user.uid),
+          orderBy(formConfig.dateField, "desc")
+        );
+        console.log(`MySubmittedFormsPage: Firestore query object created for ${formConfig.name}:`, q);
+        const querySnapshot = await getDocs(q);
+        console.log(`MySubmittedFormsPage: Firestore query for '${formConfig.name}' executed. Found ${querySnapshot.docs.length} forms.`);
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const submittedTimestamp = data[formConfig.dateField] || data.submittedAt; 
+          let details = "N/A";
+          if (formConfig.type === 'Admission') {
+            details = data.desiredProgram ? `Program: ${data.desiredProgram}` : `Full Name: ${data.fullName}`;
+          } else if (formConfig.type === 'Course Registration') {
+            details = data.term ? `Term: ${data.term}, Courses: ${(data.selectedCourses || []).length}` : `Courses: ${(data.selectedCourses || []).length}`;
+          } else if (formConfig.type === 'Custom Form') {
+            const formDataEntries = Object.entries(data.formData || {}).slice(0, 2);
+            details = formDataEntries.length > 0 
+                        ? formDataEntries.map(([key, value]) => `${key}: ${String(value).substring(0,20)}`).join('; ')
+                        : 'Custom Submission';
+          }
 
-      // Fetch Admission Forms
-      console.log("MySubmittedFormsPage: Querying 'admissionForms' for user:", user.uid);
-      const admissionFormsCollection = collection(db, "admissionForms");
-      const admissionQuery = query(
-        admissionFormsCollection,
-        where("userId", "==", user.uid),
-        orderBy("submittedAt", "desc")
-      );
-      const admissionSnapshot = await getDocs(admissionQuery);
-      console.log(`MySubmittedFormsPage: Firestore query for admission forms executed. Found ${admissionSnapshot.docs.length} forms.`);
-      admissionSnapshot.forEach((doc) => {
-        const data = doc.data();
-        forms.push({
-          id: doc.id,
-          formType: 'Admission',
-          submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : (typeof data.submittedAt === 'string' ? new Date(data.submittedAt) : null),
-          details: data.desiredProgram ? `Program: ${data.desiredProgram}` : `Full Name: ${data.fullName}`,
-          status: data.status || "Submitted",
+          forms.push({
+            id: doc.id,
+            formType: formConfig.type,
+            submittedAt: submittedTimestamp instanceof Timestamp ? submittedTimestamp.toDate() : (typeof submittedTimestamp === 'string' ? new Date(submittedTimestamp) : null),
+            details: details,
+            status: data.status || "Submitted",
+            formId: formConfig.type === 'Custom Form' ? data.formId : undefined,
+          });
         });
-      });
-
-      // Fetch Course Registrations
-      console.log("MySubmittedFormsPage: Querying 'courseRegistrations' for user:", user.uid);
-      const courseRegCollection = collection(db, "courseRegistrations");
-      const courseRegQuery = query(
-        courseRegCollection,
-        where("userId", "==", user.uid),
-        orderBy("registeredAt", "desc") // Assuming 'registeredAt' field
-      );
-      const courseRegSnapshot = await getDocs(courseRegQuery);
-      console.log(`MySubmittedFormsPage: Firestore query for course registrations executed. Found ${courseRegSnapshot.docs.length} forms.`);
-      courseRegSnapshot.forEach((doc) => {
-        const data = doc.data();
-        const submittedTimestamp = data.registeredAt || data.submittedAt;
-        forms.push({
-          id: doc.id,
-          formType: 'Course Registration',
-          submittedAt: submittedTimestamp instanceof Timestamp ? submittedTimestamp.toDate() : (typeof submittedTimestamp === 'string' ? new Date(submittedTimestamp) : null),
-          details: data.term ? `Term: ${data.term}, Courses: ${(data.selectedCourses || []).length}` : `Courses: ${(data.selectedCourses || []).length}`,
-          status: data.status || "Submitted",
-        });
-      });
-
-      // Fetch Custom Form Submissions
-      console.log("MySubmittedFormsPage: Querying 'customFormSubmissions' for user:", user.uid);
-      const customSubmissionsCollection = collection(db, "customFormSubmissions");
-      const customQuery = query(
-        customSubmissionsCollection,
-        where("userId", "==", user.uid),
-        orderBy("submittedAt", "desc")
-      );
-      const customSnapshot = await getDocs(customQuery);
-      console.log(`MySubmittedFormsPage: Firestore query for custom form submissions executed. Found ${customSnapshot.docs.length} forms.`);
-      customSnapshot.forEach((doc) => {
-        const data = doc.data();
-        forms.push({
-          id: doc.id,
-          formType: 'Custom Form',
-          formId: data.formId, // Include specific formId if needed for details
-          submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : (typeof data.submittedAt === 'string' ? new Date(data.submittedAt) : null),
-          details: data.formId ? `Custom Form: ${data.formId}` : `Custom Submission`,
-          status: data.status || "Submitted",
-        });
-      });
+      }
       
       forms.sort((a, b) => (b.submittedAt?.getTime() || 0) - (a.submittedAt?.getTime() || 0));
       setSubmittedForms(forms);
 
     } catch (err: any) {
-      console.error("MySubmittedFormsPage: Full error fetching submitted forms:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
-      const errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load your submitted forms.";
+      console.error("MySubmittedFormsPage: Full error fetching submitted forms for UID", user.uid, ":", JSON.stringify(err, Object.getOwnPropertyNames(err)));
+      let errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load your submitted forms.";
+      if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes('permission-denied'))) {
+        errorMessage = "Permission Denied. You may not have access to view these documents or Firestore rules are misconfigured. Ensure Firestore rules allow 'list' on these collections for authenticated users and that required composite indexes are created (check browser console for index creation links).";
+      }
       setError(errorMessage);
       toast({ title: "Error Loading Submitted Forms", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  };
-  
+  }, []);
+
   React.useEffect(() => {
     console.log("MySubmittedFormsPage: useEffect for onAuthStateChanged mounting.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("MySubmittedFormsPage: Auth state changed. User:", user ? user.uid : 'null');
+      console.log("MySubmittedFormsPage: Auth state changed. User UID:", user ? user.uid : 'null');
       setCurrentUser(user);
       if (user) {
         fetchSubmittedForms(user);
@@ -141,10 +141,10 @@ export default function MySubmittedFormsPage() {
       }
     });
     return () => {
-        console.log("MySubmittedFormsPage: useEffect for onAuthStateChanged unmounting.");
-        unsubscribe();
+      console.log("MySubmittedFormsPage: useEffect for onAuthStateChanged unmounting.");
+      unsubscribe();
     };
-  }, []);
+  }, [fetchSubmittedForms]);
 
   const getFormTypeIcon = (formType: SubmittedForm['formType']) => {
     switch (formType) {
@@ -206,9 +206,9 @@ export default function MySubmittedFormsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[50px]">Type</TableHead>
+                    <TableHead className="w-[50px]">Icon</TableHead>
                     <TableHead>Form Type</TableHead>
-                    <TableHead className="hidden sm:table-cell">Details</TableHead>
+                    <TableHead className="hidden sm:table-cell">Summary</TableHead>
                     <TableHead>Submitted On</TableHead>
                     <TableHead className="text-right">Status</TableHead>
                   </TableRow>
@@ -219,7 +219,11 @@ export default function MySubmittedFormsPage() {
                       <TableCell>
                         {getFormTypeIcon(form.formType)}
                       </TableCell>
-                      <TableCell className="font-medium">{form.formType === 'Custom Form' && form.formId ? `${form.formType} (${form.formId})` : form.formType}</TableCell>
+                      <TableCell className="font-medium">
+                        {form.formType === 'Custom Form' && form.formId 
+                          ? `Custom Form (${form.formId.replace("mainGlobalCustomForm", "General Inquiry")})` 
+                          : form.formType}
+                      </TableCell>
                       <TableCell className="hidden sm:table-cell text-xs text-muted-foreground truncate max-w-xs" title={form.details}>
                         {form.details || 'N/A'}
                       </TableCell>
@@ -231,7 +235,7 @@ export default function MySubmittedFormsPage() {
                           "px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap",
                           form.status === "Approved" ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" :
                           form.status === "Rejected" ? "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" :
-                          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300" // Default to pending/submitted
+                          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300"
                         )}>
                           {form.status || "Pending"}
                         </span>
@@ -247,3 +251,4 @@ export default function MySubmittedFormsPage() {
     </div>
   );
 }
+    

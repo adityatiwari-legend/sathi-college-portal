@@ -7,7 +7,7 @@ import { ArrowLeft, Download, FileIcon, Loader2, AlertTriangle, RefreshCw, Clock
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { auth, db, app as firebaseApp } from "@/lib/firebase/config"; // Import app
+import { auth, db, app as firebaseApp } from "@/lib/firebase/config"; // Corrected import: app as firebaseApp
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
@@ -29,10 +29,10 @@ export default function UserViewTimetablePage() {
   const [error, setError] = React.useState<string | null>(null);
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
-  const fetchTimetables = async (user: User | null) => {
+  const fetchTimetables = React.useCallback(async (user: User | null) => {
     console.log("UserViewTimetablePage: fetchTimetables called. User from onAuthStateChanged:", user ? user.uid : "null");
     console.log("UserViewTimetablePage: auth.currentUser at fetch start:", auth.currentUser ? auth.currentUser.uid : "null");
-    console.log("UserViewTimetablePage: Firebase app name:", firebaseApp ? firebaseApp.name : "Firebase app not initialized");
+    console.log("UserViewTimetablePage: Firebase app name:", firebaseApp ? firebaseApp.name : "Firebase app not initialized"); // Used imported firebaseApp
     console.log("UserViewTimetablePage: Firestore db instance:", db ? "Available" : "NOT AVAILABLE");
 
     if (!user) {
@@ -55,7 +55,7 @@ export default function UserViewTimetablePage() {
     if (user) {
       try {
         console.log(`UserViewTimetablePage: Attempting to force token refresh for user: ${user.uid}`);
-        await user.getIdToken(true); // Force refresh the ID token
+        await user.getIdToken(true); 
         console.log(`UserViewTimetablePage: Token refreshed successfully for user: ${user.uid}. Current auth.currentUser: ${auth.currentUser?.uid}`);
       } catch (tokenError: any) {
         console.error(`UserViewTimetablePage: Failed to refresh token for user ${user.uid}:`, JSON.stringify(tokenError, Object.getOwnPropertyNames(tokenError)));
@@ -71,7 +71,6 @@ export default function UserViewTimetablePage() {
       console.log("UserViewTimetablePage: Querying 'uploadedDocuments' for timetable context. User UID for query:", user.uid);
       const documentsCollection = collection(db, "uploadedDocuments");
       
-      // Temporarily simplified query for debugging:
       const q = query(
         documentsCollection,
         where("uploaderContext", "==", "timetable")
@@ -94,14 +93,13 @@ export default function UserViewTimetablePage() {
         } as UploadedTimetable;
       });
       
-      // Manually sort if orderBy was removed
       fetchedDocs.sort((a, b) => (b.uploadedAt?.getTime() || 0) - (a.uploadedAt?.getTime() || 0));
 
       setTimetables(fetchedDocs);
     } catch (err: any) {
       console.error("UserViewTimetablePage: Full error fetching timetables:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       let errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load timetables.";
-      if (err.code === 'permission-denied') {
+      if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes('permission-denied'))) {
         errorMessage = "Permission Denied: Your account does not have permission to view these documents. Please check Firestore rules. If rules seem correct, ensure Firestore has the necessary composite indexes for this query (check browser console for a link to create indexes).";
       }
       setError(errorMessage);
@@ -109,15 +107,15 @@ export default function UserViewTimetablePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  },[]);
 
   React.useEffect(() => {
     console.log("UserViewTimetablePage: useEffect for onAuthStateChanged mounting.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log("UserViewTimetablePage: Auth state changed. User:", user ? user.uid : 'null');
-      setCurrentUser(user); // Set current user
+      setCurrentUser(user); 
       if (user) {
-        fetchTimetables(user); // Fetch documents if user is logged in
+        fetchTimetables(user); 
       } else {
         setTimetables([]);
         setIsLoading(false);
@@ -128,7 +126,7 @@ export default function UserViewTimetablePage() {
         console.log("UserViewTimetablePage: useEffect for onAuthStateChanged unmounting.");
         unsubscribe();
     };
-  }, []);
+  }, [fetchTimetables]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -220,3 +218,4 @@ export default function UserViewTimetablePage() {
     </div>
   );
 }
+

@@ -7,7 +7,7 @@ import { ArrowLeft, Download, FileIcon, Loader2, AlertTriangle, RefreshCw } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { auth, db } from "@/lib/firebase/config";
+import { auth, db, app as firebaseApp } from "@/lib/firebase/config"; // Corrected import: app as firebaseApp
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
@@ -30,12 +30,17 @@ export default function UserSharedDocumentsPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
-  const fetchDocuments = async (user: User | null) => {
-    console.log("UserSharedDocumentsPage: fetchDocuments called. User:", user ? user.uid : "null");
+  const fetchDocuments = React.useCallback(async (user: User | null) => {
+    console.log("UserSharedDocumentsPage: fetchDocuments called. User from onAuthStateChanged:", user ? user.uid : "null");
+    console.log("UserSharedDocumentsPage: auth.currentUser at fetch start:", auth.currentUser ? auth.currentUser.uid : "null");
+    console.log("UserSharedDocumentsPage: Firebase app name:", firebaseApp ? firebaseApp.name : "Firebase app not initialized"); // Used imported firebaseApp
+    console.log("UserSharedDocumentsPage: Firestore db instance:", db ? "Available" : "NOT AVAILABLE");
+
     if (!user) {
       setError("Please log in to view shared documents.");
       setIsLoading(false);
       setDocuments([]);
+      console.log("UserSharedDocumentsPage: No user, exiting fetchDocuments.");
       return;
     }
     if (!db) {
@@ -47,14 +52,30 @@ export default function UserSharedDocumentsPage() {
 
     setIsLoading(true);
     setError(null);
+
     try {
-      console.log("UserSharedDocumentsPage: Querying 'uploadedDocuments' for admin uploads.");
+      console.log(`UserSharedDocumentsPage: Attempting to force token refresh for user: ${user.uid}`);
+      await user.getIdToken(true); 
+      console.log(`UserSharedDocumentsPage: Token refreshed successfully for user: ${user.uid}. Current auth.currentUser: ${auth.currentUser?.uid}`);
+    } catch (tokenError: any) {
+      console.error(`UserSharedDocumentsPage: Failed to refresh token for user ${user.uid}:`, JSON.stringify(tokenError, Object.getOwnPropertyNames(tokenError)));
+      setError(`Authentication session issue: Could not refresh your session (Code: ${tokenError.code || 'TOKEN_REFRESH_FAILED'}). Please try logging out and back in.`);
+      setIsLoading(false);
+      setDocuments([]);
+      return; 
+    }
+
+    try {
+      console.log("UserSharedDocumentsPage: Querying 'uploadedDocuments' for admin uploads. User UID for query:", user.uid);
       const documentsCollection = collection(db, "uploadedDocuments");
+      
       const q = query(
         documentsCollection,
         where("uploaderContext", "==", "admin"),
         orderBy("uploadedAt", "desc")
       );
+      console.log("UserSharedDocumentsPage: Firestore query object created:", q);
+
       const querySnapshot = await getDocs(q);
       console.log(`UserSharedDocumentsPage: Firestore query executed. Found ${querySnapshot.docs.length} documents.`);
       
@@ -70,26 +91,29 @@ export default function UserSharedDocumentsPage() {
           uploaderContext: data.uploaderContext || "unknown",
         } as SharedDocument;
       });
+      
       setDocuments(fetchedDocs);
     } catch (err: any) {
       console.error("UserSharedDocumentsPage: Full error fetching shared documents:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
-      const errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load shared documents.";
+      let errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load shared documents.";
+      if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes('permission-denied'))) {
+        errorMessage = "Permission Denied: You may not have access to view these documents. Please check Firestore rules and ensure you are logged in. If querying ordered data, ensure composite indexes are created (check browser console for a link to create indexes).";
+      }
       setError(errorMessage);
       toast({ title: "Error Loading Documents", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []); 
 
   React.useEffect(() => {
     console.log("UserSharedDocumentsPage: useEffect for onAuthStateChanged mounting.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log("UserSharedDocumentsPage: Auth state changed. User:", user ? user.uid : 'null');
-      setCurrentUser(user); // Set current user
+      setCurrentUser(user);
       if (user) {
-        fetchDocuments(user); // Fetch documents if user is logged in
+        fetchDocuments(user); 
       } else {
-        // Handle user being logged out
         setDocuments([]);
         setIsLoading(false);
         setError("Please log in to view shared documents.");
@@ -99,7 +123,7 @@ export default function UserSharedDocumentsPage() {
         console.log("UserSharedDocumentsPage: useEffect for onAuthStateChanged unmounting.");
         unsubscribe();
     };
-  }, []); // Empty dependency array is correct here
+  }, [fetchDocuments]); 
 
   const getFileIconElement = (contentType: string) => {
     if (contentType.startsWith("image/")) return <FileIcon className="h-5 w-5 text-purple-500" aria-label="Image file" />;
@@ -198,3 +222,4 @@ export default function UserSharedDocumentsPage() {
     </div>
   );
 }
+    
