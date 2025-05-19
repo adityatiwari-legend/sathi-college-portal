@@ -5,12 +5,14 @@ import { Timestamp } from 'firebase-admin/firestore';
 
 interface SubmittedForm {
   id: string;
-  formType: 'Admission' | 'Course Registration';
+  formType: 'Admission' | 'Course Registration' | 'Custom Form';
   userId: string;
   userEmail?: string;
-  submittedAt: string | null; // ISO string
-  details?: any; // Store original form data or a summary
-  status?: string; // e.g., 'Pending', 'Approved', 'Rejected'
+  submittedAt: string | null; 
+  details?: any; 
+  status?: string; 
+  formId?: string; // For custom forms
+  title?: string; // For custom forms, title from definition
 }
 
 export async function GET(request: NextRequest) {
@@ -23,8 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   // TODO: Implement proper admin authentication/authorization for this route
-  // For now, it's open, relying on path obscurity or future network rules.
-
+  
   try {
     const allForms: SubmittedForm[] = [];
 
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
         details: { 
           fullName: data.fullName, 
           desiredProgram: data.desiredProgram,
-          dateOfBirth: data.dateOfBirth, // Already a string from client
+          dateOfBirth: data.dateOfBirth, 
         },
         status: data.status || 'Submitted',
       });
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
     courseRegSnapshot.docs.forEach(doc => {
       const data = doc.data();
       let registeredAtISO: string | null = null;
-      const regAt = data.registeredAt || data.submittedAt; // Use registeredAt first, fallback to submittedAt
+      const regAt = data.registeredAt || data.submittedAt; 
       if (regAt && regAt instanceof Timestamp) {
         registeredAtISO = regAt.toDate().toISOString();
       } else if (regAt && typeof regAt === 'string') {
@@ -86,6 +87,43 @@ export async function GET(request: NextRequest) {
       });
     });
 
+    // Fetch Custom Form Submissions
+    const customFormSnapshot = await adminDb.collection('customFormSubmissions').orderBy('submittedAt', 'desc').get();
+    
+    // Need to fetch form definitions to get titles for custom forms
+    const customFormDefinitions = new Map<string, {title?: string}>();
+    const formDefsSnapshot = await adminDb.collection('customFormSettings').get();
+    formDefsSnapshot.forEach(defDoc => {
+        customFormDefinitions.set(defDoc.id, { title: defDoc.data().title });
+    });
+
+    customFormSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      let submittedAtISO: string | null = null;
+      if (data.submittedAt && data.submittedAt instanceof Timestamp) {
+        submittedAtISO = data.submittedAt.toDate().toISOString();
+      } else if (data.submittedAt && typeof data.submittedAt === 'string') {
+         try {
+          submittedAtISO = new Date(data.submittedAt).toISOString();
+        } catch (e) { /* ignore */ }
+      }
+      
+      const formDefinition = customFormDefinitions.get(data.formId);
+
+      allForms.push({
+        id: doc.id,
+        formType: 'Custom Form',
+        userId: data.userId || 'Unknown User',
+        userEmail: data.userEmail || 'N/A',
+        submittedAt: submittedAtISO,
+        details: { formData: data.formData }, // Storing the actual form data object
+        status: data.status || 'Submitted',
+        formId: data.formId,
+        title: formDefinition?.title || data.formId // Use definition title or fallback to formId
+      });
+    });
+
+
     // Sort all forms together by submission date, most recent first
     allForms.sort((a, b) => {
       const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
@@ -100,3 +138,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: { message: 'Failed to fetch forms', details: error.message } }, { status: 500 });
   }
 }
+

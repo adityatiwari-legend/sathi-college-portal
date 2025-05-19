@@ -3,7 +3,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, AlertTriangle, RefreshCw, ListFilter, FileText, BookMarked, UserCircle } from "lucide-react";
+import { useRouter } from "next/navigation"; // Added for navigation
+import { ArrowLeft, Loader2, AlertTriangle, RefreshCw, ListFilter, FileText, BookMarked, UserCircle, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -21,19 +22,22 @@ import {
 
 interface SubmittedForm {
   id: string;
-  formType: 'Admission' | 'Course Registration';
+  formType: 'Admission' | 'Course Registration' | 'Custom Form'; // Added 'Custom Form'
   userId: string;
   userEmail?: string;
-  submittedAt: string | null; // ISO string from API
+  submittedAt: string | null; 
   details?: Record<string, any>;
   status?: string;
+  formId?: string; // For custom forms
+  title?: string; // For custom forms, title from definition
 }
 
 export default function AllSubmittedFormsPage() {
+  const router = useRouter(); // Initialize router
   const [allForms, setAllForms] = React.useState<SubmittedForm[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [filter, setFilter] = React.useState<"all" | "Admission" | "Course Registration">("all");
+  const [filter, setFilter] = React.useState<"all" | "Admission" | "Course Registration" | "Custom Form">("all");
 
   const fetchAllForms = async () => {
     setIsLoading(true);
@@ -70,6 +74,8 @@ export default function AllSubmittedFormsPage() {
         return <FileText className="h-5 w-5 text-blue-500" aria-label="Admission Form" />;
       case 'Course Registration':
         return <BookMarked className="h-5 w-5 text-green-500" aria-label="Course Registration Form" />;
+      case 'Custom Form':
+        return <FileText className="h-5 w-5 text-purple-500" aria-label="Custom Form" />; // Example icon
       default:
         return <FileText className="h-5 w-5 text-muted-foreground" aria-label="Form" />;
     }
@@ -82,7 +88,14 @@ export default function AllSubmittedFormsPage() {
     if (form.formType === 'Course Registration') {
       return `Student ID: ${form.details?.studentId || 'N/A'}, Term: ${form.details?.term || 'N/A'}, Courses: ${(form.details?.selectedCourses as string[] || []).length}`;
     }
+     if (form.formType === 'Custom Form') {
+      return `Form: ${form.title || form.formId || 'Custom Inquiry'}. Fields: ${Object.keys(form.details?.formData || {}).length}`;
+    }
     return "No details available.";
+  };
+
+  const handleViewDetails = (form: SubmittedForm) => {
+    router.push(`/admin/dashboard/view-form/${form.id}?type=${encodeURIComponent(form.formType)}`);
   };
 
 
@@ -126,6 +139,12 @@ export default function AllSubmittedFormsPage() {
               >
                 Course Registrations
               </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={filter === "Custom Form"}
+                onCheckedChange={() => setFilter("Custom Form")}
+              >
+                Custom Forms
+              </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button variant="outline" size="icon" onClick={fetchAllForms} disabled={isLoading} aria-label="Refresh forms">
@@ -138,7 +157,7 @@ export default function AllSubmittedFormsPage() {
         <CardHeader>
           <CardTitle>Submitted Application Overview</CardTitle>
           <CardDescription>
-            Review all forms submitted by users across the portal.
+            Review all forms submitted by users across the portal. Click a row to view details.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -170,13 +189,20 @@ export default function AllSubmittedFormsPage() {
                     <TableHead>Submitted On</TableHead>
                     <TableHead className="hidden sm:table-cell">Summary</TableHead>
                     <TableHead className="text-right">Status</TableHead>
+                     <TableHead className="w-[80px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredForms.map((form) => (
-                    <TableRow key={form.id}>
+                    <TableRow 
+                      key={form.id} 
+                      onClick={() => handleViewDetails(form)}
+                      className="cursor-pointer hover:bg-muted/50"
+                    >
                       <TableCell>{getFormTypeIcon(form.formType)}</TableCell>
-                      <TableCell className="font-medium">{form.formType}</TableCell>
+                      <TableCell className="font-medium">
+                        {form.formType === 'Custom Form' ? (form.title || form.formId || 'Custom Form') : form.formType}
+                      </TableCell>
                       <TableCell className="hidden md:table-cell text-xs text-muted-foreground" title={form.userEmail || form.userId}>
                         <div className="flex items-center gap-1">
                           <UserCircle className="h-4 w-4 flex-shrink-0"/> 
@@ -196,8 +222,13 @@ export default function AllSubmittedFormsPage() {
                           form.status === "Rejected" ? "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" :
                           "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300"
                         )}>
-                          {form.status || "Pending"}
+                          {form.status || "Submitted"}
                         </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleViewDetails(form); }} aria-label="View Details">
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
