@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from "react";
@@ -13,8 +14,9 @@ import {
   ListChecks, 
   ClipboardList,
   FolderArchive,
-  Users,
-  Clock, // Added Clock icon
+  Users, // Keep for Admission Form icon in sub-menu
+  CalendarDays, // Changed from Clock for Timetable for better semantics
+  Settings // Added if profile link is considered a setting
 } from "lucide-react";
 
 import {
@@ -108,8 +110,8 @@ const NavItem = ({ href, icon, label, tooltip, disabled = false, subItems }: Nav
 
 
 const navItems: NavItemProps[] = [
-  { href: "/user/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "User Dashboard" },
-  { href: "/user/dashboard/profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile" }, 
+  { href: "/user/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "User Dashboard Home" },
+  { href: "/user/dashboard/profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View & Edit Your Profile" }, 
   {
     href: "/user/dashboard/forms", 
     icon: <FileText />,
@@ -118,12 +120,12 @@ const navItems: NavItemProps[] = [
     subItems: [
       { href: "/user/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Form" },
       { href: "/user/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Form" },
-      { href: "/user/dashboard/forms/custom-form", icon: <ClipboardList />, label: "Custom Form", tooltip: "Fill Custom Form" },
+      { href: "/user/dashboard/forms/custom-form", icon: <ClipboardList />, label: "Custom Inquiry", tooltip: "Fill Custom Form" },
     ],
   },
-  { href: "/user/dashboard/my-submitted-forms", icon: <ListChecks />, label: "My Submitted Forms", tooltip: "View Your Submitted Forms" },
-  { href: "/user/dashboard/documents", icon: <FolderArchive />, label: "Shared Documents", tooltip: "View Shared Documents" },
-  { href: "/user/dashboard/view-timetable", icon: <Clock />, label: "View Timetable", tooltip: "View College Timetables" },
+  { href: "/user/dashboard/my-submitted-forms", icon: <ListChecks />, label: "My Submitted Forms", tooltip: "Track Your Form Submissions" },
+  { href: "/user/dashboard/documents", icon: <FolderArchive />, label: "Shared Documents", tooltip: "View Admin-Shared Documents" },
+  { href: "/user/dashboard/view-timetable", icon: <CalendarDays />, label: "View Timetable", tooltip: "View College Timetables" },
 ];
 
 export function UserDashboardSidebarContent() {
@@ -191,7 +193,7 @@ export function UserDashboardSidebarContent() {
             </span>
           </div>
           <Button variant="ghost" size="icon" className="ml-auto text-sidebar-foreground/70 hover:text-sidebar-foreground" asChild>
-            <Link href="/login">
+            <Link href="/login"> {/* Should ideally be a logout button if user is logged in */}
               <LogOut className="h-5 w-5" />
             </Link>
           </Button>
@@ -200,3 +202,5 @@ export function UserDashboardSidebarContent() {
     </>
   );
 }
+
+    
