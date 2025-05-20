@@ -7,7 +7,7 @@ import { ArrowLeft, Download, FileIcon, Loader2, AlertTriangle, RefreshCw } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { auth, db, app as firebaseApp } from "@/lib/firebase/config";
+import { auth, db, app as firebaseApp } from "@/lib/firebase/config"; // Import app
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
@@ -30,28 +30,30 @@ export default function UserSharedDocumentsPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
-  const fetchDocuments = React.useCallback(async (user: User | null) => {
+  const fetchDocuments = React.useCallback(async (userToFetchFor: User | null) => {
     console.log("UserSharedDocumentsPage: fetchDocuments called.");
     if (firebaseApp) {
-        console.log("UserSharedDocumentsPage: Firebase app name:", firebaseApp.name);
+      console.log("UserSharedDocumentsPage: Firebase app name:", firebaseApp.name);
     } else {
-        console.error("UserSharedDocumentsPage: Firebase app (firebaseApp) is not initialized!");
+      console.error("UserSharedDocumentsPage: Firebase app (firebaseApp) is not initialized!");
     }
     if (db) {
         console.log("UserSharedDocumentsPage: Firestore db instance is available.");
     } else {
         console.error("UserSharedDocumentsPage: Firestore db instance is NOT available!");
     }
-    console.log("UserSharedDocumentsPage: Current auth.currentUser at fetch start:", auth.currentUser ? auth.currentUser.uid : "null");
-    console.log("UserSharedDocumentsPage: User object passed to fetchDocuments:", user ? user.uid : "null");
-
-    if (!user) {
+    
+    if (!userToFetchFor) {
       console.log("UserSharedDocumentsPage: No user provided to fetchDocuments, setting error.");
       setError("Please log in to view shared documents.");
       setIsLoading(false);
       setDocuments([]);
       return;
     }
+    console.log("UserSharedDocumentsPage: Current auth.currentUser at fetch start:", auth.currentUser ? auth.currentUser.uid : "null");
+    console.log("UserSharedDocumentsPage: User object passed to fetchDocuments:", userToFetchFor ? userToFetchFor.uid : "null");
+
+
     if (!db) {
       console.error("UserSharedDocumentsPage: Firestore 'db' instance is not available when attempting to fetch.");
       setError("Database connection error. Please try again later.");
@@ -63,11 +65,11 @@ export default function UserSharedDocumentsPage() {
     setError(null);
 
     try {
-      console.log(`UserSharedDocumentsPage: Attempting to force token refresh for user: ${user.uid}`);
-      await user.getIdToken(true); 
-      console.log(`UserSharedDocumentsPage: Token refreshed successfully for user: ${user.uid}. Current auth.currentUser: ${auth.currentUser?.uid}`);
+      console.log(`UserSharedDocumentsPage: Attempting to force token refresh for user: ${userToFetchFor.uid}`);
+      await userToFetchFor.getIdToken(true); 
+      console.log(`UserSharedDocumentsPage: Token refreshed successfully for user: ${userToFetchFor.uid}. Current auth.currentUser: ${auth.currentUser?.uid}`);
     } catch (tokenError: any) {
-      console.error(`UserSharedDocumentsPage: Failed to refresh token for user ${user.uid}:`, JSON.stringify(tokenError, Object.getOwnPropertyNames(tokenError)));
+      console.error(`UserSharedDocumentsPage: Failed to refresh token for user ${userToFetchFor.uid}:`, JSON.stringify(tokenError, Object.getOwnPropertyNames(tokenError)));
       setError(`Authentication session issue: Could not refresh your session (Code: ${tokenError.code || 'TOKEN_REFRESH_FAILED'}). Please try logging out and back in.`);
       setIsLoading(false);
       setDocuments([]);
@@ -75,13 +77,16 @@ export default function UserSharedDocumentsPage() {
     }
 
     try {
-      console.log("UserSharedDocumentsPage: Querying 'uploadedDocuments' for admin uploads. User UID for query context:", user.uid);
+      console.log("UserSharedDocumentsPage: Querying 'uploadedDocuments' for admin uploads. User UID for query context:", userToFetchFor.uid);
       const documentsCollection = collection(db, "uploadedDocuments");
       
+      // The query includes an orderBy clause. If this causes "Permission Denied",
+      // it's highly likely a composite index is needed in Firestore.
+      // Firestore error message in the browser console often provides a direct link to create it.
       const q = query(
         documentsCollection,
         where("uploaderContext", "==", "admin"),
-        orderBy("uploadedAt", "desc") // Re-enabled orderBy
+        orderBy("uploadedAt", "desc") 
       );
       console.log("UserSharedDocumentsPage: Firestore query object created:", q);
 
@@ -106,9 +111,9 @@ export default function UserSharedDocumentsPage() {
       console.error("UserSharedDocumentsPage: Full error fetching shared documents:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       let errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load shared documents.";
       if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes('permission-denied'))) {
-        errorMessage = "Permission Denied: You may not have access to view these documents. Please VERIFY your Firestore security rules are correctly published and that the user is authenticated. CRITICAL: If your query involves ordering or multiple filters on different fields, Firestore likely requires a composite index. Check your browser's developer console for a direct link from Firestore to create the necessary index. This 'Permission Denied' can sometimes mask a missing index error.";
+        errorMessage = "Permission Denied. This usually means you need to create a composite index in Firestore for this query. Please check your browser's developer console. Firebase usually provides a direct link there to create the required index. Also, verify your Firestore security rules allow reads for authenticated users on the 'uploadedDocuments' collection.";
       }
-      setError(errorMessage);
+      setError(errorMessage); // This will be displayed in the UI
       toast({ title: "Error Loading Documents", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -132,7 +137,7 @@ export default function UserSharedDocumentsPage() {
         console.log("UserSharedDocumentsPage: useEffect for onAuthStateChanged unmounting.");
         unsubscribe();
     };
-  }, [fetchDocuments]); 
+  }, [fetchDocuments]);
 
   const getFileIconElement = (contentType: string) => {
     if (contentType.startsWith("image/")) return <FileIcon className="h-5 w-5 text-purple-500" aria-label="Image file" />;
@@ -161,7 +166,7 @@ export default function UserSharedDocumentsPage() {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Shared Documents</h1>
         </div>
-        <Button variant="outline" size="icon" onClick={() => currentUser && fetchDocuments(currentUser)} disabled={isLoading} aria-label="Refresh documents">
+        <Button variant="outline" size="icon" onClick={() => currentUser && fetchDocuments(currentUser)} disabled={isLoading || !currentUser} aria-label="Refresh documents">
             <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
         </Button>
       </div>
@@ -181,9 +186,15 @@ export default function UserSharedDocumentsPage() {
             </div>
           )}
           {error && !isLoading && (
-            <div role="alert" className="p-4 border rounded-md bg-destructive/10 border-destructive/30 text-destructive flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              <p className="text-sm">{error}</p>
+            <div role="alert" className="p-4 border rounded-md bg-destructive/10 border-destructive/30 text-destructive flex flex-col items-center gap-2 text-center">
+              <AlertTriangle className="h-8 w-8 mb-2 text-destructive" />
+              <p className="text-sm font-semibold">Error Loading Documents</p>
+              <p className="text-xs">{error}</p>
+              {error.toLowerCase().includes("permission-denied") && error.toLowerCase().includes("index") && (
+                <p className="text-xs mt-2 italic">
+                  Firebase often provides a direct link in the browser's developer console (look for messages from Firestore) to create the required database index.
+                </p>
+              )}
             </div>
           )}
           {!isLoading && !error && documents.length === 0 && (
@@ -231,4 +242,3 @@ export default function UserSharedDocumentsPage() {
     </div>
   );
 }
-    
