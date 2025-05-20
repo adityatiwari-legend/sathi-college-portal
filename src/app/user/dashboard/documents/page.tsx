@@ -31,20 +31,29 @@ export default function UserSharedDocumentsPage() {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
   const fetchDocuments = React.useCallback(async (user: User | null) => {
-    console.log("UserSharedDocumentsPage: fetchDocuments called. User from onAuthStateChanged:", user ? user.uid : "null");
-    console.log("UserSharedDocumentsPage: auth.currentUser at fetch start:", auth.currentUser ? auth.currentUser.uid : "null");
-    console.log("UserSharedDocumentsPage: Firebase app name:", firebaseApp ? firebaseApp.name : "Firebase app not initialized");
-    console.log("UserSharedDocumentsPage: Firestore db instance:", db ? "Available" : "NOT AVAILABLE");
+    console.log("UserSharedDocumentsPage: fetchDocuments called.");
+    if (firebaseApp) {
+        console.log("UserSharedDocumentsPage: Firebase app name:", firebaseApp.name);
+    } else {
+        console.error("UserSharedDocumentsPage: Firebase app (firebaseApp) is not initialized!");
+    }
+    if (db) {
+        console.log("UserSharedDocumentsPage: Firestore db instance is available.");
+    } else {
+        console.error("UserSharedDocumentsPage: Firestore db instance is NOT available!");
+    }
+    console.log("UserSharedDocumentsPage: Current auth.currentUser at fetch start:", auth.currentUser ? auth.currentUser.uid : "null");
+    console.log("UserSharedDocumentsPage: User object passed to fetchDocuments:", user ? user.uid : "null");
 
     if (!user) {
+      console.log("UserSharedDocumentsPage: No user provided to fetchDocuments, setting error.");
       setError("Please log in to view shared documents.");
       setIsLoading(false);
       setDocuments([]);
-      console.log("UserSharedDocumentsPage: No user, exiting fetchDocuments.");
       return;
     }
     if (!db) {
-      console.error("UserSharedDocumentsPage: Firestore 'db' instance is not available.");
+      console.error("UserSharedDocumentsPage: Firestore 'db' instance is not available when attempting to fetch.");
       setError("Database connection error. Please try again later.");
       setIsLoading(false);
       return;
@@ -66,27 +75,19 @@ export default function UserSharedDocumentsPage() {
     }
 
     try {
-      console.log("UserSharedDocumentsPage: Querying 'uploadedDocuments' for admin uploads. User UID for query:", user.uid);
+      console.log("UserSharedDocumentsPage: Querying 'uploadedDocuments' for admin uploads. User UID for query context:", user.uid);
       const documentsCollection = collection(db, "uploadedDocuments");
       
-      // Temporarily commenting out orderBy for diagnostics.
-      // If this works, the issue is likely a missing composite index.
-      // The original query was: query(documentsCollection, where("uploaderContext", "==", "admin"), orderBy("uploadedAt", "desc"));
       const q = query(
         documentsCollection,
-        where("uploaderContext", "==", "admin")
-        // orderBy("uploadedAt", "desc") // Keep this commented out for now
+        where("uploaderContext", "==", "admin"),
+        orderBy("uploadedAt", "desc") // Re-enabled orderBy
       );
-      console.log("UserSharedDocumentsPage: Firestore query object created (orderBy is currently commented out for diagnosis):", q);
+      console.log("UserSharedDocumentsPage: Firestore query object created:", q);
 
       const querySnapshot = await getDocs(q);
       console.log(`UserSharedDocumentsPage: Firestore query executed. Found ${querySnapshot.docs.length} documents.`);
       
-      if (querySnapshot.docs.length > 0) {
-         console.warn("UserSharedDocumentsPage: Data loaded successfully WITHOUT 'orderBy'. If the page previously failed with 'Permission Denied' and 'orderBy', this strongly suggests a MISSING COMPOSITE INDEX. Check your browser console for a Firestore link to create the index for the query with 'orderBy(\"uploadedAt\", \"desc\")'.");
-      }
-
-
       const fetchedDocs = querySnapshot.docs.map((doc) => {
         const data = doc.data();
         return {
@@ -100,15 +101,12 @@ export default function UserSharedDocumentsPage() {
         } as SharedDocument;
       });
       
-      // Client-side sorting if orderBy was removed from the query
-      fetchedDocs.sort((a, b) => (b.uploadedAt?.getTime() || 0) - (a.uploadedAt?.getTime() || 0));
-
       setDocuments(fetchedDocs);
     } catch (err: any) {
       console.error("UserSharedDocumentsPage: Full error fetching shared documents:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       let errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load shared documents.";
       if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes('permission-denied'))) {
-        errorMessage = "Permission Denied. You may not have access to view these documents. Please VERIFY your Firestore security rules are correctly published and that the user is authenticated. CRITICAL: If your query involves ordering or multiple filters on different fields, Firestore likely requires a composite index. Check your browser's developer console for a direct link from Firestore to create the necessary index. This 'Permission Denied' can sometimes mask a missing index error.";
+        errorMessage = "Permission Denied: You may not have access to view these documents. Please VERIFY your Firestore security rules are correctly published and that the user is authenticated. CRITICAL: If your query involves ordering or multiple filters on different fields, Firestore likely requires a composite index. Check your browser's developer console for a direct link from Firestore to create the necessary index. This 'Permission Denied' can sometimes mask a missing index error.";
       }
       setError(errorMessage);
       toast({ title: "Error Loading Documents", description: errorMessage, variant: "destructive" });
@@ -120,8 +118,8 @@ export default function UserSharedDocumentsPage() {
   React.useEffect(() => {
     console.log("UserSharedDocumentsPage: useEffect for onAuthStateChanged mounting.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("UserSharedDocumentsPage: Auth state changed. User:", user ? user.uid : 'null');
-      setCurrentUser(user);
+      console.log("UserSharedDocumentsPage: Auth state changed. User UID:", user ? user.uid : 'null');
+      setCurrentUser(user); 
       if (user) {
         fetchDocuments(user); 
       } else {
@@ -163,7 +161,7 @@ export default function UserSharedDocumentsPage() {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Shared Documents</h1>
         </div>
-        <Button variant="outline" size="icon" onClick={() => fetchDocuments(currentUser)} disabled={isLoading} aria-label="Refresh documents">
+        <Button variant="outline" size="icon" onClick={() => currentUser && fetchDocuments(currentUser)} disabled={isLoading} aria-label="Refresh documents">
             <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
         </Button>
       </div>

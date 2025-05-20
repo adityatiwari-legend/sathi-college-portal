@@ -23,7 +23,7 @@ interface SubmittedForm {
   formId?: string; 
 }
 
-const CUSTOM_FORM_ID = "mainGlobalCustomForm"; // Ensure this matches the ID used for custom form submissions
+const CUSTOM_FORM_ID = "mainGlobalCustomForm";
 
 export default function MySubmittedFormsPage() {
   const [submittedForms, setSubmittedForms] = React.useState<SubmittedForm[]>([]);
@@ -32,16 +32,25 @@ export default function MySubmittedFormsPage() {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
   const fetchSubmittedForms = React.useCallback(async (user: User | null) => {
-    console.log("MySubmittedFormsPage: fetchSubmittedForms called. User:", user ? user.uid : 'null');
-    console.log("MySubmittedFormsPage: auth.currentUser at fetch start:", auth.currentUser ? auth.currentUser.uid : "null");
-    console.log("MySubmittedFormsPage: Firebase app name:", firebaseApp ? firebaseApp.name : "Firebase app not initialized");
-    console.log("MySubmittedFormsPage: Firestore db instance:", db ? "Available" : "NOT AVAILABLE");
-    
+    console.log("MySubmittedFormsPage: fetchSubmittedForms called.");
+    if (firebaseApp) {
+      console.log("MySubmittedFormsPage: Firebase app name:", firebaseApp.name);
+    } else {
+      console.error("MySubmittedFormsPage: Firebase app (firebaseApp) is not initialized!");
+    }
+    if (db) {
+        console.log("MySubmittedFormsPage: Firestore db instance is available.");
+    } else {
+        console.error("MySubmittedFormsPage: Firestore db instance is NOT available!");
+    }
+    console.log("MySubmittedFormsPage: Current auth.currentUser at fetch start:", auth.currentUser ? auth.currentUser.uid : "null");
+    console.log("MySubmittedFormsPage: User object passed to fetchSubmittedForms:", user ? user.uid : "null");
+
     if (!user) {
+      console.log("MySubmittedFormsPage: No user, setting error.");
       setError("Please log in to view your submitted forms.");
       setIsLoading(false);
       setSubmittedForms([]);
-      console.log("MySubmittedFormsPage: No user, exiting fetchSubmittedForms.");
       return;
     }
     if (!db) {
@@ -54,18 +63,16 @@ export default function MySubmittedFormsPage() {
     setIsLoading(true);
     setError(null);
 
-    if (user) {
-      try {
-        console.log(`MySubmittedFormsPage: Attempting to force token refresh for user: ${user.uid}`);
-        await user.getIdToken(true); 
-        console.log(`MySubmittedFormsPage: Token refreshed successfully for user: ${user.uid}. Current auth.currentUser: ${auth.currentUser?.uid}`);
-      } catch (tokenError: any) {
-        console.error(`MySubmittedFormsPage: Failed to refresh token for user ${user.uid}:`, JSON.stringify(tokenError, Object.getOwnPropertyNames(tokenError)));
-        setError(`Authentication session issue: Could not refresh session (Code: ${tokenError.code || 'TOKEN_REFRESH_FAILED'}). Please try logging out and back in.`);
-        setIsLoading(false);
-        setSubmittedForms([]);
-        return;
-      }
+    try {
+      console.log(`MySubmittedFormsPage: Attempting to force token refresh for user: ${user.uid}`);
+      await user.getIdToken(true); 
+      console.log(`MySubmittedFormsPage: Token refreshed successfully for user: ${user.uid}. Current auth.currentUser: ${auth.currentUser?.uid}`);
+    } catch (tokenError: any) {
+      console.error(`MySubmittedFormsPage: Failed to refresh token for user ${user.uid}:`, JSON.stringify(tokenError, Object.getOwnPropertyNames(tokenError)));
+      setError(`Authentication session issue: Could not refresh session (Code: ${tokenError.code || 'TOKEN_REFRESH_FAILED'}). Please try logging out and back in.`);
+      setIsLoading(false);
+      setSubmittedForms([]);
+      return; 
     }
 
     const forms: SubmittedForm[] = [];
@@ -82,24 +89,14 @@ export default function MySubmittedFormsPage() {
         
         let q;
         if (formConfig.name === "customFormSubmissions") {
-           // Temporarily commenting out orderBy for diagnostics.
-           // If this works, the issue is likely a missing composite index.
-           // Original: query(formCollection, where("userId", "==", user.uid), where("formId", "==", formConfig.formIdFilter), orderBy(formConfig.dateField, "desc"));
-          q = query(formCollection, where("userId", "==", user.uid), where("formId", "==", formConfig.formIdFilter) /*, orderBy(formConfig.dateField, "desc") */ );
+          q = query(formCollection, where("userId", "==", user.uid), where("formId", "==", formConfig.formIdFilter), orderBy(formConfig.dateField, "desc"));
         } else {
-           // Temporarily commenting out orderBy for diagnostics.
-           // If this works, the issue is likely a missing composite index.
-           // Original: query(formCollection, where("userId", "==", user.uid), orderBy(formConfig.dateField, "desc"));
-          q = query(formCollection, where("userId", "==", user.uid) /*, orderBy(formConfig.dateField, "desc") */ );
+          q = query(formCollection, where("userId", "==", user.uid), orderBy(formConfig.dateField, "desc"));
         }
 
-        console.log(`MySubmittedFormsPage: Firestore query object created for ${formConfig.name} (orderBy is currently commented out for diagnosis):`, q);
+        console.log(`MySubmittedFormsPage: Firestore query object created for ${formConfig.name}:`, q);
         const querySnapshot = await getDocs(q);
         console.log(`MySubmittedFormsPage: Firestore query for '${formConfig.name}' executed. Found ${querySnapshot.docs.length} forms.`);
-
-        if (querySnapshot.docs.length > 0) {
-          console.warn(`MySubmittedFormsPage: Data loaded successfully for '${formConfig.name}' WITHOUT 'orderBy'. If this page previously failed with 'Permission Denied' and 'orderBy', this strongly suggests a MISSING COMPOSITE INDEX. Check your browser console for a Firestore link to create the index for the query with 'orderBy("${formConfig.dateField}", "desc")'.`);
-        }
 
         querySnapshot.forEach((doc) => {
           const data = doc.data();
@@ -127,15 +124,14 @@ export default function MySubmittedFormsPage() {
         });
       }
       
-      // Client-side sorting if orderBy was removed from the query
       forms.sort((a, b) => (b.submittedAt?.getTime() || 0) - (a.submittedAt?.getTime() || 0));
       setSubmittedForms(forms);
 
     } catch (err: any) {
-      console.error("MySubmittedFormsPage: Full error fetching submitted forms:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
+      console.error("MySubmittedFormsPage: Full error fetching submitted forms for UID", user.uid, ":", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       let errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load your submitted forms.";
       if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes('permission-denied'))) {
-        errorMessage = "Permission Denied. Please VERIFY your Firestore security rules are correctly published and that you are authenticated. CRITICAL: If your query involves ordering or multiple filters on different fields, Firestore likely requires a composite index. Check your browser's developer console for a direct link from Firestore to create the necessary index. This 'Permission Denied' can sometimes mask a missing index error.";
+        errorMessage = "Permission Denied: You may not have access to view these documents. Please check Firestore rules and ensure you are logged in. If querying ordered data, ensure composite indexes are created (check browser console for a link to create indexes).";
       }
       setError(errorMessage);
       toast({ title: "Error Loading Submitted Forms", description: errorMessage, variant: "destructive" });
@@ -188,7 +184,7 @@ export default function MySubmittedFormsPage() {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">My Submitted Forms</h1>
         </div>
-        <Button variant="outline" size="icon" onClick={() => fetchSubmittedForms(currentUser)} disabled={isLoading} aria-label="Refresh forms">
+        <Button variant="outline" size="icon" onClick={() => currentUser && fetchSubmittedForms(currentUser)} disabled={isLoading} aria-label="Refresh forms">
             <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
         </Button>
       </div>
