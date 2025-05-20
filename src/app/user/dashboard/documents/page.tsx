@@ -7,7 +7,7 @@ import { ArrowLeft, Download, FileIcon, Loader2, AlertTriangle, RefreshCw } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { auth, db, app as firebaseApp } from "@/lib/firebase/config"; // Corrected import: app as firebaseApp
+import { auth, db, app as firebaseApp } from "@/lib/firebase/config";
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
@@ -33,7 +33,7 @@ export default function UserSharedDocumentsPage() {
   const fetchDocuments = React.useCallback(async (user: User | null) => {
     console.log("UserSharedDocumentsPage: fetchDocuments called. User from onAuthStateChanged:", user ? user.uid : "null");
     console.log("UserSharedDocumentsPage: auth.currentUser at fetch start:", auth.currentUser ? auth.currentUser.uid : "null");
-    console.log("UserSharedDocumentsPage: Firebase app name:", firebaseApp ? firebaseApp.name : "Firebase app not initialized"); // Used imported firebaseApp
+    console.log("UserSharedDocumentsPage: Firebase app name:", firebaseApp ? firebaseApp.name : "Firebase app not initialized");
     console.log("UserSharedDocumentsPage: Firestore db instance:", db ? "Available" : "NOT AVAILABLE");
 
     if (!user) {
@@ -69,16 +69,24 @@ export default function UserSharedDocumentsPage() {
       console.log("UserSharedDocumentsPage: Querying 'uploadedDocuments' for admin uploads. User UID for query:", user.uid);
       const documentsCollection = collection(db, "uploadedDocuments");
       
+      // Temporarily commenting out orderBy for diagnostics.
+      // If this works, the issue is likely a missing composite index.
+      // The original query was: query(documentsCollection, where("uploaderContext", "==", "admin"), orderBy("uploadedAt", "desc"));
       const q = query(
         documentsCollection,
-        where("uploaderContext", "==", "admin"),
-        orderBy("uploadedAt", "desc")
+        where("uploaderContext", "==", "admin")
+        // orderBy("uploadedAt", "desc") // Keep this commented out for now
       );
-      console.log("UserSharedDocumentsPage: Firestore query object created:", q);
+      console.log("UserSharedDocumentsPage: Firestore query object created (orderBy is currently commented out for diagnosis):", q);
 
       const querySnapshot = await getDocs(q);
       console.log(`UserSharedDocumentsPage: Firestore query executed. Found ${querySnapshot.docs.length} documents.`);
       
+      if (querySnapshot.docs.length > 0) {
+         console.warn("UserSharedDocumentsPage: Data loaded successfully WITHOUT 'orderBy'. If the page previously failed with 'Permission Denied' and 'orderBy', this strongly suggests a MISSING COMPOSITE INDEX. Check your browser console for a Firestore link to create the index for the query with 'orderBy(\"uploadedAt\", \"desc\")'.");
+      }
+
+
       const fetchedDocs = querySnapshot.docs.map((doc) => {
         const data = doc.data();
         return {
@@ -92,12 +100,15 @@ export default function UserSharedDocumentsPage() {
         } as SharedDocument;
       });
       
+      // Client-side sorting if orderBy was removed from the query
+      fetchedDocs.sort((a, b) => (b.uploadedAt?.getTime() || 0) - (a.uploadedAt?.getTime() || 0));
+
       setDocuments(fetchedDocs);
     } catch (err: any) {
       console.error("UserSharedDocumentsPage: Full error fetching shared documents:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       let errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load shared documents.";
       if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes('permission-denied'))) {
-        errorMessage = "Permission Denied: You may not have access to view these documents. Please check Firestore rules and ensure you are logged in. If querying ordered data, ensure composite indexes are created (check browser console for a link to create indexes).";
+        errorMessage = "Permission Denied. You may not have access to view these documents. Please VERIFY your Firestore security rules are correctly published and that the user is authenticated. CRITICAL: If your query involves ordering or multiple filters on different fields, Firestore likely requires a composite index. Check your browser's developer console for a direct link from Firestore to create the necessary index. This 'Permission Denied' can sometimes mask a missing index error.";
       }
       setError(errorMessage);
       toast({ title: "Error Loading Documents", description: errorMessage, variant: "destructive" });
