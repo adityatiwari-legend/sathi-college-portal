@@ -1,20 +1,21 @@
+
 "use client";
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FileText,
   UserCircle2,
   LogOut,
-  Building2,
   BookOpen,
   ListChecks, 
   ClipboardList,
   FolderArchive,
-  Users,
-  Clock, // Added Clock icon
+  Users, 
+  CalendarDays, 
 } from "lucide-react";
 
 import {
@@ -108,8 +109,8 @@ const NavItem = ({ href, icon, label, tooltip, disabled = false, subItems }: Nav
 
 
 const navItems: NavItemProps[] = [
-  { href: "/user/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "User Dashboard" },
-  { href: "/user/dashboard/profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View Your Profile" }, 
+  { href: "/user/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "User Dashboard Home" },
+  { href: "/user/dashboard/profile", icon: <UserCircle2 />, label: "My Profile", tooltip: "View & Edit Your Profile" }, 
   {
     href: "/user/dashboard/forms", 
     icon: <FileText />,
@@ -121,9 +122,9 @@ const navItems: NavItemProps[] = [
       { href: "/user/dashboard/forms/custom-form", icon: <ClipboardList />, label: "Custom Form", tooltip: "Fill Custom Form" },
     ],
   },
-  { href: "/user/dashboard/my-submitted-forms", icon: <ListChecks />, label: "My Submitted Forms", tooltip: "View Your Submitted Forms" },
-  { href: "/user/dashboard/documents", icon: <FolderArchive />, label: "Shared Documents", tooltip: "View Shared Documents" },
-  { href: "/user/dashboard/view-timetable", icon: <Clock />, label: "View Timetable", tooltip: "View College Timetables" },
+  { href: "/user/dashboard/my-submitted-forms", icon: <ListChecks />, label: "My Submitted Forms", tooltip: "Track Your Form Submissions" },
+  { href: "/user/dashboard/documents", icon: <FolderArchive />, label: "Shared Documents", tooltip: "View Admin-Shared Documents" },
+  { href: "/user/dashboard/view-timetable", icon: <CalendarDays />, label: "View Timetable", tooltip: "View College Timetables" },
 ];
 
 export function UserDashboardSidebarContent() {
@@ -163,7 +164,14 @@ export function UserDashboardSidebarContent() {
     <>
       <SidebarHeader className="p-4">
         <Link href="/user/dashboard" className="flex items-center gap-2">
-          <Building2 className="h-8 w-8 text-primary" />
+          <Image 
+            src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" 
+            alt="Sathi Portal Logo" 
+            width={32} 
+            height={32}
+            className="h-8 w-8"
+            data-ai-hint="university logo"
+          />
           <h2 className="text-xl font-semibold tracking-tight text-primary">
             Sathi Portal
           </h2>
@@ -191,7 +199,7 @@ export function UserDashboardSidebarContent() {
             </span>
           </div>
           <Button variant="ghost" size="icon" className="ml-auto text-sidebar-foreground/70 hover:text-sidebar-foreground" asChild>
-            <Link href="/login">
+            <Link href="/login"> 
               <LogOut className="h-5 w-5" />
             </Link>
           </Button>

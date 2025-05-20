@@ -17,7 +17,7 @@ export default function MyActivityDeprecatedPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <h1 className="text-2xl font-semibold tracking-tight">My Activity (Old)</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">My Activity</h1>
       </div>
       <Card className="shadow-lg">
         <CardHeader>
@@ -26,12 +26,12 @@ export default function MyActivityDeprecatedPage() {
             Page Reorganized
           </CardTitle>
           <CardDescription>
-            This "My Activity" page has been reorganized.
+            This "My Activity" page has been reorganized for better clarity.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-muted-foreground">
-            Your submitted forms and shared documents are now available on separate, dedicated pages for better clarity.
+            Your submitted forms and shared documents are now available on separate, dedicated pages:
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button asChild>
@@ -45,8 +45,12 @@ export default function MyActivityDeprecatedPage() {
                 </Link>
             </Button>
           </div>
+           <p className="text-sm text-muted-foreground mt-4">
+            Please use the links above or the sidebar navigation to access these sections.
+          </p>
         </CardContent>
       </Card>
     </div>
   );
 }
+    

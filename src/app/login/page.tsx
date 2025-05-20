@@ -5,17 +5,16 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { LogIn, Building2, Loader2, User, Shield } from "lucide-react";
+import { LogIn, Loader2, User, Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, signInWithPopup, User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
 import { auth, googleAuthProvider, firebaseConfig } from "@/lib/firebase/config";
-import Image from "next/image"; // Added this import
+import Image from "next/image"; 
 
 import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -45,10 +44,8 @@ const loginFormSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginFormSchema>;
 
-// --- Hardcoded Admin Credentials ---
 const ADMIN_EMAIL = "admin@sathi.com";
 const ADMIN_PASSWORD = "adminpassword";
-// --- End Hardcoded Admin Credentials ---
 
 export default function LoginPage() {
   const router = useRouter();
@@ -60,7 +57,7 @@ export default function LoginPage() {
     console.log("LoginPage: useEffect for onAuthStateChanged running to check initial auth state.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        console.log("LoginPage: onAuthStateChanged - An active user session exists:", user.uid);
+        console.log("LoginPage: onAuthStateChanged - An active user session exists:", user.uid, "Will NOT redirect automatically.");
       } else {
         console.log("LoginPage: onAuthStateChanged - No active user session found.");
       }
@@ -135,7 +132,6 @@ export default function LoginPage() {
     if (data.role === "admin") {
       if (data.email === ADMIN_EMAIL && data.password === ADMIN_PASSWORD) {
         console.log("Admin login successful for:", data.email);
-        // Simulate a FirebaseUser-like object for handleLoginSuccess for admin
         const mockAdminUser = { uid: "admin_sathi", email: ADMIN_EMAIL } as FirebaseUser;
         handleLoginSuccess(mockAdminUser, "admin");
         setIsLoading(false);
@@ -211,7 +207,13 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 text-primary">
-             <Building2 className="h-8 w-8" />
+             <Image 
+                src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" 
+                alt="Sathi College Portal Logo" 
+                width={64} 
+                height={64}
+                data-ai-hint="university logo"
+              />
           </div>
           <CardTitle className="text-3xl font-bold tracking-tight">Sathi Login</CardTitle>
           <CardDescription className="text-muted-foreground">

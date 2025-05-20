@@ -1,20 +1,21 @@
+
 "use client";
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FileText,
   Settings,
   LogOut,
-  Building2,
   Users,
   BookOpen,
   UploadCloud,
   Archive,
   PlusCircle,
-  Clock, // Added Clock icon
+  Clock,
 } from "lucide-react";
 
 import {
@@ -109,7 +110,14 @@ export function AdminDashboardSidebarContent() {
     <>
       <SidebarHeader className="p-4">
         <Link href="/admin/dashboard" className="flex items-center gap-2">
-          <Building2 className="h-8 w-8 text-primary" />
+          <Image 
+            src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" 
+            alt="Sathi Admin Logo" 
+            width={32} 
+            height={32}
+            className="h-8 w-8"
+            data-ai-hint="university logo"
+          />
           <h2 className="text-xl font-semibold tracking-tight text-primary">
             Sathi Admin
           </h2>

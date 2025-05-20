@@ -5,10 +5,11 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { UserPlus, Building2, Loader2 } from "lucide-react";
+import { UserPlus, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -50,25 +51,20 @@ export default function SignupPage() {
   React.useEffect(() => {
     console.log("SignupPage: useEffect for onAuthStateChanged running to check initial auth state.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // We still want to know if a user session exists for debugging or potential future logic,
-      // but we won't automatically redirect from this page based on it.
       if (user) {
-        console.log("SignupPage: onAuthStateChanged - An active user session exists:", user.uid);
+        console.log("SignupPage: onAuthStateChanged - An active user session exists:", user.uid, "Will NOT redirect automatically.");
       } else {
         console.log("SignupPage: onAuthStateChanged - No active user session found.");
       }
-      // Regardless of user state, we stop checking and allow the form to render.
-      // The actual signup action is initiated by user interaction.
       setIsCheckingAuth(false);
       console.log("SignupPage: isCheckingAuth set to false, form should be visible.");
     });
 
-    // Cleanup subscription on component unmount
     return () => {
       console.log("SignupPage: Cleaning up onAuthStateChanged subscription.");
       unsubscribe();
     };
-  }, [router]); // Keep router in dependency array for same reasons as LoginPage.
+  }, []);
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupFormSchema),
@@ -87,7 +83,7 @@ export default function SignupPage() {
         title: "Sign Up Successful!",
         description: "Your account has been created. Please login to continue.",
       });
-      router.push('/login'); // Redirect to login page after successful signup
+      router.push('/login'); 
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred. Please try again.";
       if (error.code) {
@@ -137,7 +133,13 @@ export default function SignupPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 text-primary">
-             <Building2 className="h-8 w-8" />
+            <Image 
+              src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" 
+              alt="Sathi College Portal Logo" 
+              width={64} 
+              height={64}
+              data-ai-hint="university logo"
+            />
           </div>
           <CardTitle className="text-3xl font-bold tracking-tight">Create Sathi Account</CardTitle>
           <CardDescription className="text-muted-foreground">
