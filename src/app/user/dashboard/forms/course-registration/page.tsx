@@ -6,7 +6,7 @@ import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { ArrowLeft, Send, Loader2, BookMarked } from "lucide-react";
+import { ArrowLeft, Send, Loader2, BookMarked, Info, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,7 +19,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -37,6 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase/config";
 import { User } from "firebase/auth";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const courseRegistrationFormSchema = z.object({
   studentName: z.string().min(1, {message: "Student name is required (auto-filled if available)"}).optional(),
@@ -49,7 +49,6 @@ const courseRegistrationFormSchema = z.object({
 
 type CourseRegistrationFormValues = z.infer<typeof courseRegistrationFormSchema>;
 
-// Dummy data for terms and courses
 const terms = [
   { value: "fall_2024", label: "Fall 2024" },
   { value: "spring_2025", label: "Spring 2025" },
@@ -65,9 +64,18 @@ const allCourses = [
   { id: "ec101", label: "Principles of Microeconomics" },
 ];
 
+interface FormSettings {
+  title: string;
+  description: string;
+  isActive: boolean;
+}
+
 export default function UserCourseRegistrationFormPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+  const [formSettings, setFormSettings] = React.useState<FormSettings | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = React.useState(true);
+  const [settingsError, setSettingsError] = React.useState<string | null>(null);
   
   const form = useForm<CourseRegistrationFormValues>({
     resolver: zodResolver(courseRegistrationFormSchema),
@@ -91,7 +99,33 @@ export default function UserCourseRegistrationFormPage() {
     return () => unsubscribe();
   }, [form]);
 
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      setIsLoadingSettings(true);
+      setSettingsError(null);
+      try {
+        const response = await fetch("/api/admin/form-settings?formType=course-registration");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || "Failed to fetch form settings.");
+        }
+        const data = await response.json();
+        setFormSettings(data.settings);
+      } catch (error: any) {
+        setSettingsError(error.message);
+        toast({ title: "Error Loading Form Configuration", description: error.message, variant: "destructive" });
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   async function onSubmit(data: CourseRegistrationFormValues) {
+     if (!formSettings?.isActive) {
+      toast({ title: "Form Closed", description: "This form is currently not accepting submissions.", variant: "destructive" });
+      return;
+    }
     setIsSubmitting(true);
     if (!currentUser) {
       toast({ title: "Authentication Error", description: "You must be logged in to submit this form.", variant: "destructive" });
@@ -109,13 +143,13 @@ export default function UserCourseRegistrationFormPage() {
         },
         body: JSON.stringify({
           ...data,
-          studentName: data.studentName || currentUser.displayName || "N/A", // Ensure name is passed
+          studentName: data.studentName || currentUser.displayName || "N/A",
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to submit course registration.");
+        throw new Error(errorData.error?.message || "Failed to submit course registration.");
       }
 
       toast({
@@ -134,17 +168,90 @@ export default function UserCourseRegistrationFormPage() {
     }
   }
 
+  if (isLoadingSettings) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-9" />
+          <Skeleton className="h-8 w-40" />
+        </div>
+        <Card className="shadow-lg max-w-2xl mx-auto">
+          <CardHeader>
+            <Skeleton className="h-7 w-1/2 mb-1" />
+            <Skeleton className="h-4 w-3/4" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+            <Skeleton className="h-20 w-full" /> 
+          </CardContent>
+          <CardFooter className="border-t pt-6 flex justify-end">
+            <Skeleton className="h-10 w-28" />
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
+  if (settingsError) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" asChild>
+            <Link href="/user/dashboard">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Course Registration</h1>
+        </div>
+        <Card className="shadow-lg max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><ShieldAlert className="h-6 w-6 text-destructive"/>Error Loading Form</CardTitle>
+            <CardDescription>There was an issue loading the form configuration.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-destructive">{settingsError}</p>
+            <p className="text-muted-foreground mt-2">Please try again later or contact support.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!formSettings?.isActive) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" asChild>
+            <Link href="/user/dashboard">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">{formSettings?.title || "Course Registration"}</h1>
+        </div>
+        <Card className="shadow-lg max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Info className="h-6 w-6 text-primary"/>Form Currently Closed</CardTitle>
+            <CardDescription>{formSettings?.description || "This form is not currently accepting submissions."}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">Please check back later or contact the administration for more information.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
-            <Link href="/user/dashboard">
+            <Link href="/user/dashboard/forms">
               <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Back to User Dashboard</span>
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Course Registration</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{formSettings?.title || "Course Registration"}</h1>
         </div>
       </div>
 
@@ -152,9 +259,9 @@ export default function UserCourseRegistrationFormPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardHeader>
-              <CardTitle>Register for Courses</CardTitle>
+              <CardTitle>{formSettings?.title || "Register for Courses"}</CardTitle>
               <CardDescription>
-                Select your courses for the upcoming term.
+                {formSettings?.description || "Select your courses for the upcoming term."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -262,7 +369,7 @@ export default function UserCourseRegistrationFormPage() {
               />
             </CardContent>
             <CardFooter className="border-t pt-6 flex justify-end">
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || !formSettings?.isActive}>
                 {isSubmitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -277,4 +384,3 @@ export default function UserCourseRegistrationFormPage() {
     </div>
   );
 }
-

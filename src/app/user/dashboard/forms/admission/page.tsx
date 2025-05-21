@@ -6,7 +6,7 @@ import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { ArrowLeft, Send, Loader2, CalendarIcon } from "lucide-react";
+import { ArrowLeft, Send, Loader2, CalendarIcon, Info, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -43,6 +43,8 @@ import { toast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase/config";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { User } from "firebase/auth";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const admissionFormSchema = z.object({
   fullName: z.string().min(3, { message: "Full name must be at least 3 characters." }).max(100),
@@ -55,7 +57,6 @@ const admissionFormSchema = z.object({
 
 type AdmissionFormValues = z.infer<typeof admissionFormSchema>;
 
-// Dummy program options
 const programs = [
   { value: "computer_science", label: "B.Sc. Computer Science" },
   { value: "business_admin", label: "BBA Business Administration" },
@@ -64,8 +65,19 @@ const programs = [
   { value: "psychology", label: "B.Sc. Psychology" },
 ];
 
+interface FormSettings {
+  title: string;
+  description: string;
+  isActive: boolean;
+}
+
 export default function UserAdmissionFormPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+  const [formSettings, setFormSettings] = React.useState<FormSettings | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = React.useState(true);
+  const [settingsError, setSettingsError] = React.useState<string | null>(null);
+
   const form = useForm<AdmissionFormValues>({
     resolver: zodResolver(admissionFormSchema),
     defaultValues: {
@@ -77,10 +89,42 @@ export default function UserAdmissionFormPage() {
     },
   });
 
+  React.useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      setIsLoadingSettings(true);
+      setSettingsError(null);
+      try {
+        const response = await fetch("/api/admin/form-settings?formType=admission");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || "Failed to fetch form settings.");
+        }
+        const data = await response.json();
+        setFormSettings(data.settings);
+      } catch (error: any) {
+        setSettingsError(error.message);
+        toast({ title: "Error Loading Form Configuration", description: error.message, variant: "destructive" });
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   async function onSubmit(data: AdmissionFormValues) {
+    if (!formSettings?.isActive) {
+      toast({ title: "Form Closed", description: "This form is currently not accepting submissions.", variant: "destructive" });
+      return;
+    }
     setIsSubmitting(true);
-    const user = auth.currentUser;
-    if (!user) {
+    if (!currentUser) {
       toast({ title: "Authentication Error", description: "You must be logged in to submit this form.", variant: "destructive" });
       setIsSubmitting(false);
       return;
@@ -89,7 +133,7 @@ export default function UserAdmissionFormPage() {
     console.log("Submitting admission form data:", data);
 
     try {
-      const idToken = await user.getIdToken();
+      const idToken = await currentUser.getIdToken();
       const response = await fetch("/api/forms/admission", {
         method: "POST",
         headers: {
@@ -98,22 +142,36 @@ export default function UserAdmissionFormPage() {
         },
         body: JSON.stringify({
           ...data,
-          dateOfBirth: format(data.dateOfBirth, "yyyy-MM-dd"), // Ensure date is formatted as string
+          dateOfBirth: format(data.dateOfBirth, "yyyy-MM-dd"),
         }),
       });
 
       if (!response.ok) {
-        let errorData;
+        let errorData = { error: { message: "Failed to submit admission form. Server returned an error." }};
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
-          errorData = await response.json();
-          console.error("Server returned JSON error:", errorData);
+            try {
+                const parsedError = await response.json();
+                if (parsedError.error) {
+                    if (typeof parsedError.error === 'string') {
+                        errorData.error.message = parsedError.error;
+                    } else if (typeof parsedError.error.message === 'string') {
+                        errorData.error.message = parsedError.error.message;
+                    }
+                }
+            } catch (e) {
+                console.error("Admission form submission: Failed to parse JSON error response:", e);
+                const errorText = await response.text();
+                console.error("Admission form submission API raw error response text:", errorText);
+                errorData.error.message = `Failed to submit. Server responded with status ${response.status}. Check server logs for details.`;
+            }
         } else {
           const errorText = await response.text();
-          console.error("Server returned non-JSON error. Status:", response.status, "Response text:", errorText);
-          errorData = { error: `Server error: ${response.status}. Check browser console for HTML response.` };
+          console.error("Admission form submission API error response text:", errorText);
+          errorData.error.message = `Failed to submit. Server responded with status ${response.status} and non-JSON content. Check server logs.`;
         }
-        throw new Error(errorData.error || "Failed to submit admission form. Server returned an error.");
+        console.error("Admission form submission API error response:", errorData); 
+        throw new Error(errorData.error.message);
       }
 
       const result = await response.json();
@@ -125,9 +183,10 @@ export default function UserAdmissionFormPage() {
       form.reset();
     } catch (error: any) {
       console.error("Admission form submission error (client-side catch):", error);
+       const clientErrorMessage = error.message || "An unexpected error occurred while submitting the form.";
       toast({
         title: "Submission Failed",
-        description: error.message || "An unexpected error occurred while submitting the form.",
+        description: clientErrorMessage,
         variant: "destructive",
       });
     } finally {
@@ -135,17 +194,88 @@ export default function UserAdmissionFormPage() {
     }
   }
 
+  if (isLoadingSettings) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-9" />
+          <Skeleton className="h-8 w-40" />
+        </div>
+        <Card className="shadow-lg max-w-2xl mx-auto">
+          <CardHeader>
+            <Skeleton className="h-7 w-1/2 mb-1" />
+            <Skeleton className="h-4 w-3/4" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+          </CardContent>
+          <CardFooter className="border-t pt-6 flex justify-end">
+            <Skeleton className="h-10 w-28" />
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
+  if (settingsError) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" asChild>
+            <Link href="/user/dashboard">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Admission Form</h1>
+        </div>
+        <Card className="shadow-lg max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><ShieldAlert className="h-6 w-6 text-destructive"/>Error Loading Form</CardTitle>
+            <CardDescription>There was an issue loading the form configuration.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-destructive">{settingsError}</p>
+            <p className="text-muted-foreground mt-2">Please try again later or contact support.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!formSettings?.isActive) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" asChild>
+            <Link href="/user/dashboard">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">{formSettings?.title || "Admission Form"}</h1>
+        </div>
+        <Card className="shadow-lg max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Info className="h-6 w-6 text-primary"/>Form Currently Closed</CardTitle>
+            <CardDescription>{formSettings?.description || "This form is not currently accepting submissions."}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">Please check back later or contact the administration for more information.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
-            <Link href="/user/dashboard">
+            <Link href="/user/dashboard/forms">
               <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Back to User Dashboard</span>
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Admission Form</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{formSettings?.title || "Admission Form"}</h1>
         </div>
       </div>
 
@@ -153,9 +283,9 @@ export default function UserAdmissionFormPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardHeader>
-              <CardTitle>Apply for Admission</CardTitle>
+              <CardTitle>{formSettings?.title || "Apply for Admission"}</CardTitle>
               <CardDescription>
-                Please fill out the details below to apply for admission to Sathi College.
+                {formSettings?.description || "Please fill out the details below to apply for admission to Sathi College."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -289,7 +419,7 @@ export default function UserAdmissionFormPage() {
               />
             </CardContent>
             <CardFooter className="border-t pt-6 flex justify-end">
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || !formSettings?.isActive}>
                 {isSubmitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (

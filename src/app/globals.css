@@ -109,3 +109,102 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+    margin: 0;
+    padding: 0;
+    line-height: 1.4;
+  }
+  #printable-area, #printable-area * {
+    visibility: visible;
+  }
+  #printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: auto;
+    padding: 20mm; /* Standard A4 margins */
+    font-size: 11pt; /* Standard print font size */
+    color: #000; /* Ensure text is black for printing */
+    background-color: #fff; /* Ensure background is white */
+  }
+  .no-print {
+    display: none !important;
+  }
+  .printable-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Aligns logo to left, text to right */
+    margin-bottom: 2rem; /* More space after header */
+    border-bottom: 2px solid #000; /* Solid line under header */
+    padding-bottom: 1rem;
+  }
+  .printable-logo {
+    height: 60px; /* Adjust as needed */
+    width: auto;
+    margin-right: 20px;
+  }
+  .printable-header-text {
+    text-align: right;
+  }
+  .printable-header-text h2 {
+    font-size: 18pt;
+    font-weight: bold;
+    margin: 0;
+    color: #000;
+  }
+  .printable-header-text p {
+    font-size: 12pt;
+    margin: 0;
+    color: #333;
+  }
+  .printable-data-item {
+    margin-bottom: 0.75rem; /* Space between items */
+    page-break-inside: avoid; /* Try to keep label and value together */
+  }
+  .printable-data-label {
+    font-weight: bold;
+    display: block; /* Makes label take full width initially */
+    margin-bottom: 0.25rem;
+    color: #000;
+  }
+  .printable-data-value { /* This class is not used in the JSX, direct styling is applied to <dd> */
+    margin-left: 1rem; /* Indent the value */
+    color: #222;
+  }
+  .printable-footer {
+    position: fixed; /* Or use running footers if browser supports well */
+    bottom: 10mm;
+    left: 20mm;
+    right: 20mm;
+    text-align: center;
+    font-size: 9pt;
+    color: #555;
+    border-top: 1px solid #ccc;
+    padding-top: 0.5rem;
+  }
+
+  /* Remove shadows and borders from cards in print */
+  #printable-area .shadcn-card { /* Assuming you might wrap content in a card-like structure */
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+   /* Ensure textareas and inputs print their content correctly */
+  #printable-area textarea, #printable-area input[type="text"] {
+    border: 1px solid #ccc !important; /* Light border to show field extent */
+    padding: 0.25rem !important;
+    background-color: #f9f9f9 !important; /* Slightly off-white to distinguish from page */
+    color: #000 !important;
+    width: 100%; /* Make them take available width */
+    -webkit-print-color-adjust: exact !important; /* Force chrome to print background colors */
+    color-adjust: exact !important;
+  }
+  #printable-area dl dd { /* Style for the definition list description (value) */
+    margin-left: 1rem; /* Indent the value */
+    color: #222;
+  }
+}
