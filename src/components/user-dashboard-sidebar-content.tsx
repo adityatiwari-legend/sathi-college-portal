@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from "react";
@@ -12,7 +11,9 @@ import {
   Building2,
   BookOpen,
   Users, 
-  ListChecks, // Icon for "My Activity"
+  ListChecks,
+  CalendarDays, // Added for View Timetable
+  ClipboardList, // Added for Custom Form
 } from "lucide-react";
 
 import {
@@ -116,9 +117,12 @@ const navItems: NavItemProps[] = [
     subItems: [
       { href: "/user/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Form" },
       { href: "/user/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Form" },
+      { href: "/user/dashboard/forms/custom-form", icon: <ClipboardList />, label: "Custom Form", tooltip: "Fill Custom Form" },
     ],
   },
-  { href: "/user/dashboard/my-activity", icon: <ListChecks />, label: "My Activity", tooltip: "View Submissions & Docs" },
+  { href: "/user/dashboard/my-submitted-forms", icon: <ListChecks />, label: "My Submissions", tooltip: "View Your Submitted Forms" },
+  { href: "/user/dashboard/documents", icon: <DownloadIcon />, label: "Shared Documents", tooltip: "View Admin Shared Documents" },
+  { href: "/user/dashboard/view-timetable", icon: <CalendarDays />, label: "View Timetable", tooltip: "View Academic Timetable" },
 ];
 
 export function UserDashboardSidebarContent() {
@@ -159,7 +163,7 @@ export function UserDashboardSidebarContent() {
     <>
       <SidebarHeader className="p-4">
         <Link href="/user/dashboard" className="flex items-center gap-2">
-          <Building2 className="h-8 w-8 text-primary" />
+          <img src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" className="h-8 w-auto"/>
           <h2 className="text-xl font-semibold tracking-tight text-primary">
             Sathi Portal
           </h2>
