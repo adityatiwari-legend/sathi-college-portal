@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb, getAdminAuth } from '@/lib/firebase/admin-sdk'; // UPDATED IMPORT PATH
+import { getAdminDb, getAdminAuth } from '@/lib/firebase/admin-sdk';
 import { FieldValue } from 'firebase-admin/firestore';
 import { DecodedIdToken } from 'firebase-admin/auth';
 
@@ -53,15 +53,15 @@ export async function POST(request: NextRequest) {
 
   if (!adminAuth) {
     console.error('/api/admin/custom-form-settings: POST - Auth Admin service not available.');
-    return NextResponse.json({ error: { message: 'Firebase Admin SDK not initialized (Auth).' } }, { status: 500 });
+    return NextResponse.json({ error: {message: 'Firebase Admin SDK not initialized (Auth).'} }, { status: 500 });
   }
   if (!adminDb) {
     console.error('/api/admin/custom-form-settings: POST - Firestore Admin service not available.');
-    return NextResponse.json({ error: { message: 'Firebase Admin SDK not initialized (Firestore).' } }, { status: 500 });
+    return NextResponse.json({ error: {message: 'Firebase Admin SDK not initialized (Firestore).'} }, { status: 500 });
   }
   
   // IMPORTANT: Add admin authentication/authorization here for production
-  // For example, verify Firebase ID token and check for admin custom claim
+  // For example, verify Firebase ID token and check for an admin custom claim
   // const authorization = request.headers.get('Authorization');
   // if (!authorization?.startsWith('Bearer ')) {
   //   return NextResponse.json({ error: { message: 'Unauthorized' } }, { status: 401 });
@@ -87,6 +87,17 @@ export async function POST(request: NextRequest) {
     if (typeof settings.title !== 'string' || typeof settings.isActive !== 'boolean' || !Array.isArray(settings.fields)) {
       console.log('/api/admin/custom-form-settings: POST - Validation failed: Invalid settings structure.');
       return NextResponse.json({ error: {message: 'Invalid settings structure'} }, { status: 400 });
+    }
+
+    // Validate fields structure
+    if (settings.fields.some((field: any) => 
+        typeof field.key !== 'string' || field.key.trim() === '' ||
+        typeof field.label !== 'string' || field.label.trim() === '' ||
+        !['text', 'textarea'].includes(field.type) ||
+        typeof field.isRequired !== 'boolean'
+    )) {
+        console.log('/api/admin/custom-form-settings: POST - Validation failed: Invalid field structure within fields array.');
+        return NextResponse.json({ error: { message: 'Invalid field structure within custom fields.'} }, { status: 400 });
     }
 
 

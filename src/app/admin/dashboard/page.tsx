@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FileText, Users, Settings, Archive, UploadCloud, CalendarDays } from "lucide-react";
+import { FileText, Users, Settings, Archive, UploadCloud, CalendarDays, Bell } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminDashboardPage() { 
@@ -87,6 +87,24 @@ export default function AdminDashboardPage() {
             </Link>
           </CardContent>
         </Card>
+        
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg font-medium">
+              Notifications
+            </CardTitle>
+            <Bell className="h-6 w-6 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              View system alerts and important user activity.
+            </p>
+            <Link href="/admin/dashboard/notifications" className="text-sm font-medium text-primary hover:underline">
+              View Notifications &rarr;
+            </Link>
+          </CardContent>
+        </Card>
+
 
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -131,7 +149,7 @@ export default function AdminDashboardPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Adjusted for 4 items */}
+          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> 
             <div className="p-4 border rounded-lg bg-card/50">
               <h3 className="font-semibold mb-2">Admission Form Settings</h3>
               <p className="text-sm text-muted-foreground">Configure the standard admission form.</p>

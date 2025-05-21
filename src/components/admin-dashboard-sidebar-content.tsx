@@ -9,13 +9,13 @@ import {
   FileText,
   Settings,
   LogOut,
-  Building2,
   Users,
   BookOpen,
   UploadCloud,
   Archive,
   CalendarDays,
-  LayoutList // Icon for custom form configuration
+  LayoutList,
+  Bell // Added Bell icon
 } from "lucide-react";
 
 import {
@@ -102,6 +102,7 @@ const navItems: NavItemProps[] = [
   { href: "/admin/dashboard/all-submitted-forms", icon: <Archive />, label: "All Submissions", tooltip: "View All Submitted Forms" },
   { href: "/admin/dashboard/upload-timetable", icon: <CalendarDays />, label: "Upload Timetable", tooltip: "Manage Timetables" },
   { href: "/admin/dashboard/upload-document", icon: <UploadCloud />, label: "Upload Document", tooltip: "Manage General Documents" },
+  { href: "/admin/dashboard/notifications", icon: <Bell />, label: "Notifications", tooltip: "View System Notifications" },
   { href: "/admin/dashboard/settings", icon: <Settings />, label: "Settings", tooltip: "App Settings" },
 ];
 

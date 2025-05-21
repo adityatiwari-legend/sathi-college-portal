@@ -2,12 +2,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb, getAdminStorage, getAdminApp } from '@/lib/firebase/admin-sdk';
 import type { DecodedIdToken } from 'firebase-admin/auth';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'; // Import Timestamp
 
 export async function POST(request: NextRequest) {
   console.log("/api/user/delete-form: POST request received");
   const adminAuth = getAdminAuth();
   const adminDb = getAdminDb();
-  const adminStorage = getAdminStorage(); // For potential file deletions if forms had uploads
+  const adminStorage = getAdminStorage();
   const adminApp = getAdminApp();
 
 
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { formId, formType, storagePath } = await request.json(); // storagePath might be undefined for forms without uploads
+    const { formId, formType, storagePath } = await request.json();
     console.log(`/api/user/delete-form: POST - Request to delete formId: ${formId}, formType: ${formType}, storagePath: ${storagePath}`);
 
     if (!formId || !formType) {
@@ -71,22 +72,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: { message: 'Forbidden: You do not have permission to delete this form.', code: 'FORBIDDEN_DELETION' } }, { status: 403 });
     }
 
-    // Placeholder: If forms could have associated file uploads, delete them from Storage here.
-    // For example, if formData contained a storagePath for an uploaded file.
-    // if (formData.associatedFilePath && adminStorage) {
-    //   try {
-    //     const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${adminApp.options.projectId}.appspot.com`;
-    //     const bucket = adminStorage.bucket(bucketName);
-    //     const file = bucket.file(formData.associatedFilePath);
-    //     await file.delete();
-    //     console.log(`/api/user/delete-form: POST - Successfully deleted associated file from Storage: ${formData.associatedFilePath}`);
-    //   } catch (storageError: any) {
-    //     console.warn(`/api/user/delete-form: POST - Failed to delete associated file from Storage (path: ${formData.associatedFilePath}), but proceeding with Firestore deletion:`, storageError.message);
-    //   }
-    // }
-
+    // Delete from Firestore
     await docRef.delete();
-    console.log(`ADMIN NOTIFICATION (SERVER LOG): User ${decodedToken.uid} (Email: ${decodedToken.email || 'N/A'}) deleted ${formType} form with ID: ${formId}.`);
+    const deletionMessage = `User ${decodedToken.email || decodedToken.uid} deleted their ${formType} form (ID: ${formId}).`;
+    console.log(`ADMIN NOTIFICATION (SERVER LOG): ${deletionMessage}`);
+    
+    // Create a notification for the admin
+    const adminNotificationsRef = adminDb.collection('adminNotifications');
+    await adminNotificationsRef.add({
+      message: deletionMessage,
+      type: 'form_deletion',
+      userId: decodedToken.uid,
+      userEmail: decodedToken.email || null,
+      relatedFormId: formId,
+      relatedFormType: formType,
+      timestamp: FieldValue.serverTimestamp(),
+      isRead: false, // For future "mark as read" functionality
+    });
+    console.log(`/api/user/delete-form: Admin notification created for form deletion.`);
+    
     console.log(`/api/user/delete-form: POST - Successfully deleted form ${formId} from ${collectionName}.`);
     
     return NextResponse.json({ message: `${formType} form deleted successfully.` });
