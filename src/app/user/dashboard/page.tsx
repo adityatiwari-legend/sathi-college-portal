@@ -3,7 +3,7 @@
 
 import * as React from "react"; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { FileText, UserCircle2, BookOpen, ListChecks, Download as DownloadIcon, Bell, CalendarDays, ClipboardList, Users } from "lucide-react"; // Added Users
+import { FileText, UserCircle2, BookOpen, ListChecks, Download as DownloadIcon, Bell, CalendarDays, ClipboardList, Users } from "lucide-react";
 import Link from "next/link";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth"; 
 import { auth } from "@/lib/firebase/config"; 
@@ -18,7 +18,7 @@ interface DashboardCardProps {
   href?: string;
   links?: { href: string; label: string; icon?: React.ReactNode }[];
   className?: string;
-  children?: React.ReactNode; // Allow children for cards like Announcements
+  children?: React.ReactNode;
 }
 
 const DashboardCard: React.FC<DashboardCardProps> = ({ title, description, icon, href, links, className, children }) => (
@@ -112,14 +112,14 @@ export default function UserDashboardPage() {
           title="My Submitted Forms"
           description="Track the status and details of your submitted applications."
           icon={<ListChecks className="h-6 w-6" />}
-          href="/user/dashboard/my-submitted-forms"
+          href="/user/dashboard/my-submitted-forms" // Updated link
         />
         
         <DashboardCard
           title="Shared Documents"
           description="View documents shared by the college administration."
           icon={<DownloadIcon className="h-6 w-6" />}
-          href="/user/dashboard/documents"
+          href="/user/dashboard/documents" // Updated link
         />
         
         <DashboardCard
@@ -133,7 +133,7 @@ export default function UserDashboardPage() {
           title="Notifications"
           description="Stay updated with important announcements and deadlines."
           icon={<Bell className="h-6 w-6" />}
-          className="bg-muted/30 border-dashed" // Placeholder style
+          className="bg-muted/30 border-dashed" 
         >
            <CardContent>
              <p className="text-sm text-muted-foreground">No new notifications at this time.</p>
@@ -146,3 +146,4 @@ export default function UserDashboardPage() {
     </div>
   );
 }
+    

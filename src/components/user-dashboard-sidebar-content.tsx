@@ -14,7 +14,8 @@ import {
   ListChecks,
   CalendarDays,
   ClipboardList,
-  Download // Added Download icon
+  Download, // Keep Download icon
+  Archive // Removed - My Activity is split
 } from "lucide-react";
 
 import {
@@ -33,7 +34,7 @@ import { Button } from "@/components/ui/button";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
 import * as React from "react";
-import Image from "next/image"; // For Amity Logo
+import Image from "next/image"; 
 
 interface NavItemProps {
   href: string;
@@ -122,7 +123,7 @@ const navItems: NavItemProps[] = [
       { href: "/user/dashboard/forms/custom-form", icon: <ClipboardList />, label: "Custom Form", tooltip: "Fill Custom Form" },
     ],
   },
-  { href: "/user/dashboard/my-submitted-forms", icon: <ListChecks />, label: "My Submissions", tooltip: "View Your Submitted Forms" },
+  { href: "/user/dashboard/my-submitted-forms", icon: <ListChecks />, label: "My Submitted Forms", tooltip: "View Your Submitted Forms" },
   { href: "/user/dashboard/documents", icon: <Download />, label: "Shared Documents", tooltip: "View Admin Shared Documents" },
   { href: "/user/dashboard/view-timetable", icon: <CalendarDays />, label: "View Timetable", tooltip: "View Academic Timetable" },
 ];
@@ -202,3 +203,4 @@ export function UserDashboardSidebarContent() {
     </>
   );
 }
+    
