@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FileText, Users, Settings, Archive } from "lucide-react"; // Added Archive icon
+import { FileText, Users, Settings, Archive, UploadCloud, CalendarDays } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminDashboardPage() { 
@@ -23,16 +23,16 @@ export default function AdminDashboardPage() {
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg font-medium">
-              Form Templates
+              Manage Form Types
             </CardTitle>
             <FileText className="h-6 w-6 text-accent" />
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Access and manage various college-related form templates.
+              Configure admission, course registration, and custom form settings.
             </p>
-            <Link href="/admin/dashboard/forms/admission" className="text-sm font-medium text-primary hover:underline">
-              Manage Form Templates &rarr;
+            <Link href="/admin/dashboard/forms" className="text-sm font-medium text-primary hover:underline">
+              Manage Form Types &rarr;
             </Link>
           </CardContent>
         </Card>
@@ -54,6 +54,39 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg font-medium">
+              Upload Timetable
+            </CardTitle>
+            <CalendarDays className="h-6 w-6 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Upload and manage academic timetables in PDF format.
+            </p>
+            <Link href="/admin/dashboard/upload-timetable" className="text-sm font-medium text-primary hover:underline">
+              Manage Timetables &rarr;
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg font-medium">
+              Upload Documents
+            </CardTitle>
+            <UploadCloud className="h-6 w-6 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Manage general documents shared with users.
+            </p>
+            <Link href="/admin/dashboard/upload-document" className="text-sm font-medium text-primary hover:underline">
+              Manage General Uploads &rarr;
+            </Link>
+          </CardContent>
+        </Card>
 
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -98,19 +131,26 @@ export default function AdminDashboardPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Adjusted for 4 items */}
             <div className="p-4 border rounded-lg bg-card/50">
-              <h3 className="font-semibold mb-2">Admission Forms (Templates)</h3>
-              <p className="text-sm text-muted-foreground">Create and manage admission form templates.</p>
+              <h3 className="font-semibold mb-2">Admission Form Settings</h3>
+              <p className="text-sm text-muted-foreground">Configure the standard admission form.</p>
               <Link href="/admin/dashboard/forms/admission" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
-                Manage Admission Templates &rarr;
+                Manage Admission Settings &rarr;
               </Link>
             </div>
             <div className="p-4 border rounded-lg bg-card/50">
-              <h3 className="font-semibold mb-2">Course Reg. (Templates)</h3>
-              <p className="text-sm text-muted-foreground">Set up course registration periods and forms.</p>
+              <h3 className="font-semibold mb-2">Course Reg. Settings</h3>
+              <p className="text-sm text-muted-foreground">Set up course registration periods and settings.</p>
                <Link href="/admin/dashboard/forms/course-registration" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
-                Manage Course Reg. Templates &rarr;
+                Manage Course Reg. Settings &rarr;
+              </Link>
+            </div>
+             <div className="p-4 border rounded-lg bg-card/50">
+              <h3 className="font-semibold mb-2">Global Custom Form</h3>
+              <p className="text-sm text-muted-foreground">Configure the global custom form.</p>
+               <Link href="/admin/dashboard/forms/configure-custom" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
+                Configure Custom Form &rarr;
               </Link>
             </div>
             <div className="p-4 border rounded-lg bg-card/50">
@@ -118,13 +158,6 @@ export default function AdminDashboardPage() {
               <p className="text-sm text-muted-foreground">Review all submitted forms.</p>
                <Link href="/admin/dashboard/all-submitted-forms" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
                 Go to Submissions &rarr;
-              </Link>
-            </div>
-             <div className="p-4 border rounded-lg bg-card/50">
-              <h3 className="font-semibold mb-2">Upload Documents</h3>
-              <p className="text-sm text-muted-foreground">Manage documents shared with users.</p>
-               <Link href="/admin/dashboard/upload-document" className="text-sm mt-2 inline-block font-medium text-primary hover:underline">
-                Manage Uploads &rarr;
               </Link>
             </div>
           </div>

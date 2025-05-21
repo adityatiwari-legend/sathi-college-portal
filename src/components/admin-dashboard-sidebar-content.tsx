@@ -13,7 +13,9 @@ import {
   Users,
   BookOpen,
   UploadCloud,
-  Archive, // Icon for All Submitted Forms
+  Archive,
+  CalendarDays,
+  LayoutList // Icon for custom form configuration
 } from "lucide-react";
 
 import {
@@ -29,7 +31,6 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-// import { cn } from "@/lib/utils"; // cn might not be needed here if not using conditional classes based on NavItem logic
 
 interface NavItemProps {
   href: string;
@@ -41,8 +42,6 @@ interface NavItemProps {
 
 const NavItem = ({ href, icon, label, tooltip, subItems }: NavItemProps) => {
   const pathname = usePathname();
-  // Check if current path starts with the item's href for active state.
-  // For sub-items, if any sub-item's href matches the start of pathname, the parent is active.
   const isActive = pathname === href || 
                    (href !== '/admin/dashboard' && pathname.startsWith(href)) || 
                    (subItems && subItems.some(sub => pathname.startsWith(sub.href)));
@@ -90,17 +89,19 @@ const NavItem = ({ href, icon, label, tooltip, subItems }: NavItemProps) => {
 const navItems: NavItemProps[] = [
   { href: "/admin/dashboard", icon: <LayoutDashboard />, label: "Dashboard", tooltip: "Admin Dashboard Home" },
   {
-    href: "/admin/dashboard/forms", // Parent path for forms section
+    href: "/admin/dashboard/forms", 
     icon: <FileText />,
-    label: "College Forms",
-    tooltip: "Manage Forms",
+    label: "Manage Forms",
+    tooltip: "Configure Form Types",
     subItems: [
-      { href: "/admin/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Forms" },
-      { href: "/admin/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Forms" },
+      { href: "/admin/dashboard/forms/admission", icon: <Users />, label: "Admission", tooltip: "Admission Form Settings" },
+      { href: "/admin/dashboard/forms/course-registration", icon: <BookOpen />, label: "Course Reg.", tooltip: "Course Registration Settings" },
+      { href: "/admin/dashboard/forms/configure-custom", icon: <LayoutList />, label: "Global Custom Form", tooltip: "Configure Global Custom Form" },
     ],
   },
   { href: "/admin/dashboard/all-submitted-forms", icon: <Archive />, label: "All Submissions", tooltip: "View All Submitted Forms" },
-  { href: "/admin/dashboard/upload-document", icon: <UploadCloud />, label: "Upload Document", tooltip: "Manage Uploaded Documents" },
+  { href: "/admin/dashboard/upload-timetable", icon: <CalendarDays />, label: "Upload Timetable", tooltip: "Manage Timetables" },
+  { href: "/admin/dashboard/upload-document", icon: <UploadCloud />, label: "Upload Document", tooltip: "Manage General Documents" },
   { href: "/admin/dashboard/settings", icon: <Settings />, label: "Settings", tooltip: "App Settings" },
 ];
 
@@ -109,7 +110,7 @@ export function AdminDashboardSidebarContent() {
     <>
       <SidebarHeader className="p-4">
         <Link href="/admin/dashboard" className="flex items-center gap-2">
-          <Building2 className="h-8 w-8 text-primary" />
+          <img src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" className="h-8 w-auto"/>
           <h2 className="text-xl font-semibold tracking-tight text-primary">
             Sathi Admin
           </h2>
