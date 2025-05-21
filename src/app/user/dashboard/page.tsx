@@ -1,13 +1,15 @@
+
 "use client"; 
 
 import * as React from "react"; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { FileText, UserCircle2, BookOpen, ListChecks, Save, Download as DownloadIcon, Loader2, Bell, CalendarDays, ClipboardList } from "lucide-react";
+import { FileText, UserCircle2, BookOpen, ListChecks, Download as DownloadIcon, Bell, CalendarDays, ClipboardList, Users } from "lucide-react"; // Added Users
 import Link from "next/link";
-import { onAuthStateChanged, User } from "firebase/auth"; 
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth"; 
 import { auth } from "@/lib/firebase/config"; 
 import { Skeleton } from "@/components/ui/skeleton"; 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface DashboardCardProps {
   title: string;
@@ -16,9 +18,10 @@ interface DashboardCardProps {
   href?: string;
   links?: { href: string; label: string; icon?: React.ReactNode }[];
   className?: string;
+  children?: React.ReactNode; // Allow children for cards like Announcements
 }
 
-const DashboardCard: React.FC<DashboardCardProps> = ({ title, description, icon, href, links, className }) => (
+const DashboardCard: React.FC<DashboardCardProps> = ({ title, description, icon, href, links, className, children }) => (
   <Card className={cn("shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col", className)}>
     <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
       <div className="space-y-1">
@@ -30,7 +33,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({ title, description, icon,
       </div>
     </CardHeader>
     <CardContent className="flex-grow">
-      {/* Content can be added here if needed, like stats or quick info */}
+      {children}
     </CardContent>
     <CardFooter className="pt-2">
       {href && (
@@ -56,7 +59,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({ title, description, icon,
 
 
 export default function UserDashboardPage() {
-  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+  const [currentUser, setCurrentUser] = React.useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
