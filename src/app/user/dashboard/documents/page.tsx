@@ -13,7 +13,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { auth, db, app as firebaseApp } from "@/lib/firebase/config"; // Import app
+import { auth, db, app as firebaseApp } from "@/lib/firebase/config";
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
@@ -39,7 +39,7 @@ export default function UserSharedDocumentsPage() {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
   const fetchDocuments = React.useCallback(async (user: User | null) => {
-    console.log("UserSharedDocumentsPage: fetchDocuments called. Current auth.currentUser:", auth.currentUser?.uid, "User from param:", user?.uid);
+    console.log("UserSharedDocumentsPage: fetchDocuments called. Current auth.currentUser from auth instance:", auth.currentUser?.uid, "User from param:", user?.uid);
     console.log("UserSharedDocumentsPage: Firebase app name:", firebaseApp?.name);
     console.log("UserSharedDocumentsPage: Firestore db instance defined:", !!db);
 
@@ -61,25 +61,31 @@ export default function UserSharedDocumentsPage() {
     setIsLoading(true);
     setError(null);
 
-    try {
-      // Force refresh the ID token before making the Firestore query
-      console.log(`UserSharedDocumentsPage: Attempting to force token refresh for user: ${user.uid}`);
-      await user.getIdToken(true);
-      console.log(`UserSharedDocumentsPage: Token refreshed successfully for user: ${user.uid}. Current auth.currentUser after refresh: ${auth.currentUser?.uid}`);
+    if (user) { 
+      try {
+        console.log(`UserSharedDocumentsPage: Attempting to force token refresh for user: ${user.uid}`);
+        await user.getIdToken(true); 
+        console.log(`UserSharedDocumentsPage: Token refreshed successfully for user: ${user.uid}. Current auth.currentUser after refresh: ${auth.currentUser?.uid}`);
+      } catch (tokenError: any) {
+        console.error(`UserSharedDocumentsPage: Failed to refresh token for user ${user.uid}:`, JSON.stringify(tokenError, Object.getOwnPropertyNames(tokenError)));
+        setError(`Authentication session issue: Could not refresh your session (Code: ${tokenError.code || 'TOKEN_REFRESH_FAILED'}). Please try logging out and back in.`);
+        setIsLoading(false);
+        setDocuments([]); 
+        return; 
+      }
+    }
 
+    try {
       const documentsCollection = collection(db, "uploadedDocuments");
       console.log("UserSharedDocumentsPage: Querying 'uploadedDocuments' for admin uploads...");
       const q = query(
         documentsCollection,
-        where("uploaderContext", "==", "admin"), // Only fetch documents uploaded by admin
-        orderBy("uploadedAt", "desc") // Temporarily commented out for diagnosing permission issues
+        where("uploaderContext", "==", "admin"), // Filter for admin uploads
+        orderBy("uploadedAt", "desc") // Order by upload date
       );
+      console.log("UserSharedDocumentsPage: Firestore query object created. Attempting getDocs...");
       const querySnapshot = await getDocs(q);
       console.log(`UserSharedDocumentsPage: Firestore query for shared documents executed. Found ${querySnapshot.size} documents.`);
-
-      // if (querySnapshot.empty) {
-      //   console.warn("UserSharedDocumentsPage: No documents found with uploaderContext 'admin'. Ensure composite index (uploaderContext ASC, uploadedAt DESC) exists if orderBy is used.");
-      // }
       
       const fetchedDocs = querySnapshot.docs.map((doc) => {
         const data = doc.data();
@@ -94,19 +100,12 @@ export default function UserSharedDocumentsPage() {
         };
       }) as UploadedAdminDocument[];
 
-      // If orderBy was commented out, sort client-side
-      // fetchedDocs.sort((a, b) => {
-      //  const dateA = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
-      //  const dateB = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
-      //  return dateB - dateA;
-      // });
-
       setDocuments(fetchedDocs);
     } catch (err: any) {
       console.error("UserSharedDocumentsPage: Full error fetching shared documents:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       let errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load shared documents.";
       if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes('permission-denied'))) {
-        errorMessage = "Permission Denied. This usually means you need to create a composite index in Firestore for this query. Please check your browser's developer console. Firebase usually provides a direct link there to create the required index. Also, verify your Firestore security rules allow reads for authenticated users on the 'uploadedDocuments' collection.";
+        errorMessage = "Permission Denied: You may not have access to view these documents. Please VERIFY your Firestore security rules are correctly published and that the user is authenticated. CRITICAL: If your query involves ordering or multiple filters on different fields, Firestore likely requires a composite index. Check your browser's developer console for a direct link from Firestore to create the necessary index. This 'Permission Denied' can sometimes mask a missing index error.";
       }
       setError(errorMessage);
       toast({ title: "Error Loading Documents", description: errorMessage, variant: "destructive" });
@@ -120,14 +119,13 @@ export default function UserSharedDocumentsPage() {
     console.log("UserSharedDocumentsPage: onAuthStateChanged effect setup.");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log("UserSharedDocumentsPage: Auth state changed. User:", user ? user.uid : 'null');
-      setCurrentUser(user); // Set current user
+      setCurrentUser(user); 
       if (user) {
-        fetchDocuments(user); // Fetch documents if user is logged in
+        fetchDocuments(user);
       } else {
-        // Handle user being logged out
         setError("Please log in to view shared documents.");
         setIsLoading(false);
-        setDocuments([]); // Clear documents if user logs out
+        setDocuments([]); 
       }
     });
     return () => {
@@ -153,7 +151,7 @@ export default function UserSharedDocumentsPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  if (isLoading && (!currentUser || currentUser && auth.currentUser === null) ) { // Show loader if still checking auth or fetching initial data
+  if (isLoading && (!currentUser && auth.currentUser === null) ) { 
      return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -167,7 +165,7 @@ export default function UserSharedDocumentsPage() {
           </CardHeader>
           <CardContent className="flex items-center justify-center py-10">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-             <p className="ml-3 text-muted-foreground">Loading shared documents...</p>
+             <p className="ml-3 text-muted-foreground">Checking authentication and loading documents...</p>
           </CardContent>
         </Card>
       </div>
@@ -182,11 +180,12 @@ export default function UserSharedDocumentsPage() {
           <Button variant="outline" size="icon" asChild>
             <Link href="/user/dashboard">
               <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Back to User Dashboard</span>
             </Link>
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Shared Documents</h1>
         </div>
-        <Button variant="outline" size="icon" onClick={() => fetchDocuments(currentUser)} disabled={isLoading || !currentUser} aria-label="Refresh documents">
+        <Button variant="outline" size="icon" onClick={() => currentUser && fetchDocuments(currentUser)} disabled={isLoading || !currentUser} aria-label="Refresh documents">
             <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
         </Button>
       </div>
@@ -199,13 +198,13 @@ export default function UserSharedDocumentsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && !error && ( // Only show primary loading if no error yet
+          {isLoading && !error && (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2 text-muted-foreground">Loading documents...</p>
             </div>
           )}
-          {error && (
+          {error && ( // Display error regardless of loading state if an error has occurred
             <div role="alert" className="p-4 border rounded-md bg-destructive/10 border-destructive/30 text-destructive flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
               <p className="text-sm">{error}</p>
@@ -256,4 +255,6 @@ export default function UserSharedDocumentsPage() {
     </div>
   );
 }
+    
+
     
