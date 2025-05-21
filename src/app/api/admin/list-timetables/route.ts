@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase/admin-sdk'; // UPDATED IMPORT PATH
 import { Timestamp } from 'firebase-admin/firestore';
 
-interface DocumentData {
+interface TimetableData {
   id: string;
   originalFileName: string;
   downloadUrl: string;
@@ -11,25 +11,25 @@ interface DocumentData {
   size: number;
   uploadedAt: string | null; 
   uploaderContext: string;
-  storagePath: string; // Added for delete functionality
+  storagePath: string; 
 }
 
 export async function GET(request: NextRequest) {
-  console.log("/api/admin/list-documents: GET request received");
+  console.log("/api/admin/list-timetables: GET request received");
   const adminDb = getAdminDb();
 
   if (!adminDb) {
-    console.error('/api/admin/list-documents: GET - Firestore Admin service not available. Admin SDK might not have initialized properly.');
+    console.error('/api/admin/list-timetables: GET - Firestore Admin service not available.');
     return NextResponse.json({ error: { message: 'Firebase Admin SDK not initialized (Firestore).' } }, { status: 500 });
   }
 
   try {
     const snapshot = await adminDb.collection('uploadedDocuments')
-                                .where('uploaderContext', '==', 'admin') // Only general admin documents
+                                .where('uploaderContext', '==', 'timetable')
                                 .orderBy('uploadedAt', 'desc')
                                 .get();
     
-    const documents: DocumentData[] = snapshot.docs.map(doc => {
+    const timetables: TimetableData[] = snapshot.docs.map(doc => {
       const data = doc.data();
       let uploadedAtISO: string | null = null;
       if (data.uploadedAt && data.uploadedAt instanceof Timestamp) {
@@ -42,18 +42,18 @@ export async function GET(request: NextRequest) {
         id: doc.id,
         originalFileName: data.originalFileName || "N/A",
         downloadUrl: data.downloadUrl || "#",
-        contentType: data.contentType || "application/octet-stream",
+        contentType: data.contentType || "application/pdf",
         size: data.size || 0,
         uploadedAt: uploadedAtISO,
-        uploaderContext: data.uploaderContext || "unknown",
+        uploaderContext: data.uploaderContext || "timetable",
         storagePath: data.storagePath || "", // Ensure storagePath is returned
       };
     });
     
-    console.log(`/api/admin/list-documents: GET - Successfully fetched ${documents.length} admin-uploaded documents (general).`);
-    return NextResponse.json(documents);
+    console.log(`/api/admin/list-timetables: GET - Successfully fetched ${timetables.length} timetables.`);
+    return NextResponse.json(timetables);
   } catch (error: any) {
-    console.error('Error fetching admin-uploaded documents (/api/admin/list-documents GET):', error);
-    return NextResponse.json({ error: { message: 'Failed to fetch documents', details: error.message } }, { status: 500 });
+    console.error('Error fetching timetables (/api/admin/list-timetables GET):', error);
+    return NextResponse.json({ error: { message: 'Failed to fetch timetables', details: error.message } }, { status: 500 });
   }
 }

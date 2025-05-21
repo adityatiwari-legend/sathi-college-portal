@@ -1,11 +1,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { getAdminDb } from '@/lib/firebase/admin-sdk'; // UPDATED IMPORT PATH
 import { Timestamp } from 'firebase-admin/firestore';
 
 interface SubmittedForm {
   id: string;
-  formType: 'Admission' | 'Course Registration';
+  formType: 'Admission' | 'Course Registration' | 'Custom Form';
   userId: string;
   userEmail?: string;
   submittedAt: string | null; // ISO string
@@ -22,9 +22,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: { message: 'Firebase Admin SDK not initialized (Firestore).' } }, { status: 500 });
   }
 
-  // TODO: Implement proper admin authentication/authorization for this route
-  // For now, it's open, relying on path obscurity or future network rules.
-
   try {
     const allForms: SubmittedForm[] = [];
 
@@ -36,22 +33,15 @@ export async function GET(request: NextRequest) {
       if (data.submittedAt && data.submittedAt instanceof Timestamp) {
         submittedAtISO = data.submittedAt.toDate().toISOString();
       } else if (data.submittedAt && typeof data.submittedAt === 'string') {
-         try {
-          submittedAtISO = new Date(data.submittedAt).toISOString();
-        } catch (e) { /* ignore if not a valid date string */ }
+         try { submittedAtISO = new Date(data.submittedAt).toISOString(); } catch (e) { /* ignore */ }
       }
-
       allForms.push({
         id: doc.id,
         formType: 'Admission',
         userId: data.userId || 'Unknown User',
         userEmail: data.userEmail || 'N/A',
         submittedAt: submittedAtISO,
-        details: { 
-          fullName: data.fullName, 
-          desiredProgram: data.desiredProgram,
-          dateOfBirth: data.dateOfBirth, // Already a string from client
-        },
+        details: { fullName: data.fullName, desiredProgram: data.desiredProgram },
         status: data.status || 'Submitted',
       });
     });
@@ -61,32 +51,45 @@ export async function GET(request: NextRequest) {
     courseRegSnapshot.docs.forEach(doc => {
       const data = doc.data();
       let registeredAtISO: string | null = null;
-      const regAt = data.registeredAt || data.submittedAt; // Use registeredAt first, fallback to submittedAt
+      const regAt = data.registeredAt || data.submittedAt;
       if (regAt && regAt instanceof Timestamp) {
         registeredAtISO = regAt.toDate().toISOString();
       } else if (regAt && typeof regAt === 'string') {
-        try {
-          registeredAtISO = new Date(regAt).toISOString();
-        } catch (e) { /* ignore */ }
+        try { registeredAtISO = new Date(regAt).toISOString(); } catch (e) { /* ignore */ }
       }
-      
       allForms.push({
         id: doc.id,
         formType: 'Course Registration',
         userId: data.userId || 'Unknown User',
         userEmail: data.userEmail || 'N/A',
         submittedAt: registeredAtISO,
-        details: { 
-          studentName: data.studentName, 
-          studentId: data.studentId,
-          term: data.term, 
-          selectedCourses: data.selectedCourses 
-        },
+        details: { studentName: data.studentName, studentId: data.studentId, term: data.term, selectedCourses: data.selectedCourses },
+        status: data.status || 'Submitted',
+      });
+    });
+    
+    // Fetch Custom Form Submissions
+    const customFormSnapshot = await adminDb.collection('customFormSubmissions').orderBy('submittedAt', 'desc').get();
+    customFormSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      let submittedAtISO: string | null = null;
+      if (data.submittedAt && data.submittedAt instanceof Timestamp) {
+        submittedAtISO = data.submittedAt.toDate().toISOString();
+      } else if (data.submittedAt && typeof data.submittedAt === 'string') {
+         try { submittedAtISO = new Date(data.submittedAt).toISOString(); } catch (e) { /* ignore */ }
+      }
+      allForms.push({
+        id: doc.id,
+        formType: 'Custom Form',
+        userId: data.userId || 'Unknown User',
+        userEmail: data.userEmail || 'N/A',
+        submittedAt: submittedAtISO,
+        details: { formId: data.formId, fieldCount: data.formData ? Object.keys(data.formData).length : 0 }, // Example summary
         status: data.status || 'Submitted',
       });
     });
 
-    // Sort all forms together by submission date, most recent first
+
     allForms.sort((a, b) => {
       const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
       const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;

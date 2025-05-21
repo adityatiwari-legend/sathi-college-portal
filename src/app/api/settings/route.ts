@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth, getAdminDb } from '@/lib/firebase/admin'; // Use getter functions
+import { getAdminAuth, getAdminDb } from '@/lib/firebase/admin-sdk'; // UPDATED IMPORT PATH
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const adminDb = getAdminDb();
   if (!adminDb) {
     console.error('/api/settings: GET - Firestore Admin service not available.');
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Firestore).' }, { status: 500 });
+    return NextResponse.json({ error: { message: 'Firebase Admin SDK not initialized (Firestore).' } }, { status: 500 });
   }
 
   try {
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ settings: doc.data() });
   } catch (error: any) {
     console.error('Error fetching settings:', error);
-    return NextResponse.json({ error: 'Failed to fetch settings', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: { message: 'Failed to fetch settings', details: error.message } }, { status: 500 });
   }
 }
 
@@ -33,25 +33,27 @@ export async function POST(request: NextRequest) {
 
   if (!adminAuth) {
     console.error('/api/settings: POST - Auth Admin service not available.');
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Auth).' }, { status: 500 });
+    return NextResponse.json({ error: { message: 'Firebase Admin SDK not initialized (Auth).' } }, { status: 500 });
   }
   if (!adminDb) {
     console.error('/api/settings: POST - Firestore Admin service not available.');
-    return NextResponse.json({ error: 'Firebase Admin SDK not initialized (Firestore).' }, { status: 500 });
+    return NextResponse.json({ error: { message: 'Firebase Admin SDK not initialized (Firestore).' } }, { status: 500 });
   }
 
   const authorization = request.headers.get('Authorization');
   if (!authorization?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized: No token provided' }, { status: 401 });
+    return NextResponse.json({ error: { message: 'Unauthorized: No token provided' } }, { status: 401 });
   }
   const idToken = authorization.split('Bearer ')[1];
 
   let decodedToken: DecodedIdToken;
   try {
+    // TODO: Implement actual admin role check here using custom claims if needed for production
+    // For now, any authenticated user can call this if they have the token.
     decodedToken = await adminAuth.verifyIdToken(idToken);
   } catch (error: any) {
     console.error('Error verifying token:', error);
-    return NextResponse.json({ error: 'Unauthorized: Invalid token', details: error.message }, { status: 401 });
+    return NextResponse.json({ error: { message: 'Unauthorized: Invalid token', details: error.message } }, { status: 401 });
   }
 
   try {
@@ -68,6 +70,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Settings updated successfully' });
   } catch (error: any) {
     console.error('Error updating settings:', error);
-    return NextResponse.json({ error: 'Failed to update settings', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: { message: 'Failed to update settings', details: error.message } }, { status: 500 });
   }
 }

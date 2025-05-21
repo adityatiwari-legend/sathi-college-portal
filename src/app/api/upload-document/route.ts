@@ -1,21 +1,29 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminApp, getAdminDb, getAdminStorage } from '@/lib/firebase/admin';
+import { getAdminApp, getAdminDb, getAdminStorage } from '@/lib/firebase/admin-sdk'; // UPDATED IMPORT PATH
 import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
-  try { 
-    console.log('/api/upload-document: POST request received.');
+  console.log('/api/upload-document: POST request received.');
+  let adminApp;
+  let adminDbInstance;
+  let adminStorageInstance;
 
-    const adminApp = getAdminApp();
-    const adminDbInstance = getAdminDb();
-    const adminStorageInstance = getAdminStorage();
+  try {
+    adminApp = getAdminApp();
+    adminDbInstance = getAdminDb();
+    adminStorageInstance = getAdminStorage();
 
     if (!adminApp) {
-      console.error('/api/upload-document: CRITICAL - Firebase Admin App instance is NOT available. Check admin.ts logs.');
+      console.error('/api/upload-document: CRITICAL - Firebase Admin App instance is NOT available.');
       return NextResponse.json({ error: { message: 'Internal Server Error: Firebase Admin App failed to initialize.', code: 'ADMIN_APP_UNAVAILABLE' }}, { status: 500 });
     }
-    console.log(`/api/upload-document: Firebase Admin App obtained. Project ID from app options: ${adminApp.options.projectId}`);
+    console.log(`/api/upload-document: Firebase Admin App obtained. Project ID from app options: ${adminApp.options?.projectId || 'N/A (options missing!)'}`);
+     if (!adminApp.options?.projectId) {
+       console.error('/api/upload-document: CRITICAL - Admin App options or projectId is missing!');
+       return NextResponse.json({ error: { message: 'Internal Server Error: Firebase Admin App options or projectId missing.', code: 'ADMIN_APP_OPTIONS_MISSING' }}, { status: 500 });
+     }
+
 
     if (!adminDbInstance) {
       console.error('/api/upload-document: CRITICAL - Firestore Admin service (adminDbInstance) not available.');
@@ -36,8 +44,9 @@ export async function POST(request: NextRequest) {
     }
     console.log(`/api/upload-document: File: ${file.name}, Size: ${file.size}, Type: ${file.type}, Context: ${uploaderContext}`);
 
+    // Determine bucket name
     const envBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-    const fallbackBucketName = "sathi-app-3vfky.firebasestorage.app";
+    const fallbackBucketName = "sathi-app-3vfky.firebasestorage.app"; // Ensure this is your correct fallback for sathi-app-3vfky
     const bucketName = envBucketName || fallbackBucketName;
 
     if (!bucketName) {
@@ -49,7 +58,7 @@ export async function POST(request: NextRequest) {
     const bucket = adminStorageInstance.bucket(bucketName);
     console.log(`/api/upload-document: Bucket object obtained for: ${bucket.name}`);
     
-    const basePath = uploaderContext === 'admin' ? 'admin_uploads' : 'user_uploads';
+    const basePath = uploaderContext === 'admin' ? 'admin_uploads' : (uploaderContext === 'timetable' ? 'timetables' : 'user_uploads');
     const fileNameInStorage = `${basePath}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
     console.log(`/api/upload-document: Target storage path: ${fileNameInStorage}`);
     
@@ -72,18 +81,20 @@ export async function POST(request: NextRequest) {
 
     console.log('/api/upload-document: File uploaded. Getting signed URL...');
     const [url] = await fileUpload.getSignedUrl({ action: 'read', expires: '03-09-2491' });
-    console.log(`/api/upload-document: Signed URL: ${url}`);
+    console.log(`/api/upload-document: Signed URL generated: ${url.substring(0, 100)}...`);
 
     console.log('/api/upload-document: Adding document metadata to Firestore "uploadedDocuments"...');
-    const docRef = await adminDbInstance.collection('uploadedDocuments').add({
+    const docData = {
       uploaderContext: uploaderContext,
       originalFileName: file.name,
-      storagePath: fileNameInStorage,
+      storagePath: fileNameInStorage, // Essential for deletion
       downloadUrl: url,
       contentType: file.type,
       size: file.size,
       uploadedAt: FieldValue.serverTimestamp(),
-    });
+    };
+    console.log('/api/upload-document: Firestore document data:', docData);
+    const docRef = await adminDbInstance.collection('uploadedDocuments').add(docData);
     console.log(`/api/upload-document: Firestore document created: ${docRef.id}`);
 
     return NextResponse.json({
@@ -93,12 +104,24 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('/api/upload-document: CATASTROPHIC error in POST handler:', error);
-    const errorMessage = error.message || 'Failed to upload file due to an unexpected internal server error.';
-    const errorCode = String(error.code || 'UNKNOWN_API_ERROR');
-    const errorDetails = error instanceof Error ? error.stack : JSON.stringify(error, (key, value) =>
-      typeof value === 'bigint' ? value.toString() : value , 2);
+    console.error('!!! Critical Error in /api/upload-document POST !!!:', error);
+    let clientErrorMessage = 'Failed to upload file due to an unexpected internal server error.';
+    let clientErrorCode = 'UPLOAD_FAILED_UNKNOWN';
+    let serverDetails = {};
+
+    if (error.code) { 
+        clientErrorMessage = `Server error: ${error.message} (Code: ${error.code})`;
+        clientErrorCode = String(error.code);
+    } else if (error.message) {
+        clientErrorMessage = error.message;
+    }
     
-    return NextResponse.json({ error: { message: errorMessage, code: errorCode }, details: errorDetails }, { status: 500 });
+    if (process.env.NODE_ENV === 'development') {
+        serverDetails = { name: error.name, message: error.message, code: error.code, stack: error.stack };
+    }
+    
+    const errorResponsePayload = { error: { message: clientErrorMessage, code: clientErrorCode, ...(process.env.NODE_ENV === 'development' && { serverDetails }) } };
+    console.error("[API Error Response Prepared] /api/upload-document POST:", JSON.stringify(errorResponsePayload));
+    return NextResponse.json(errorResponsePayload, { status: 500 });
   }
 }
