@@ -3,15 +3,33 @@
 
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, UploadCloud, FileUp, CheckCircle, AlertTriangle, Loader2, FileIcon, Download, RefreshCw } from "lucide-react";
+import { ArrowLeft, UploadCloud, FileUp, CheckCircle, AlertTriangle, Loader2, FileIcon, Download, RefreshCw, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 
 interface UploadedAdminDocument {
   id: string;
@@ -21,6 +39,7 @@ interface UploadedAdminDocument {
   size: number;
   uploadedAt: string | null; // ISO string from API
   uploaderContext: string;
+  storagePath: string; // Essential for delete functionality
 }
 
 export default function AdminUploadDocumentPage() { 
@@ -34,10 +53,12 @@ export default function AdminUploadDocumentPage() {
   const [adminDocuments, setAdminDocuments] = React.useState<UploadedAdminDocument[]>([]);
   const [isLoadingDocuments, setIsLoadingDocuments] = React.useState(true);
   const [fetchDocError, setFetchDocError] = React.useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState<string | null>(null); // Tracks ID of document being deleted
+
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const fetchAdminDocuments = async () => {
+  const fetchAdminDocuments = React.useCallback(async () => {
     setIsLoadingDocuments(true);
     setFetchDocError(null);
     try {
@@ -55,11 +76,11 @@ export default function AdminUploadDocumentPage() {
     } finally {
       setIsLoadingDocuments(false);
     }
-  };
+  }, []);
 
   React.useEffect(() => {
     fetchAdminDocuments();
-  }, []);
+  }, [fetchAdminDocuments]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -102,7 +123,7 @@ export default function AdminUploadDocumentPage() {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
-      formData.append("uploaderContext", "admin");
+      formData.append("uploaderContext", "admin"); // Context for general admin uploads
 
       let progress = 0;
       const progressInterval = setInterval(() => {
@@ -125,19 +146,30 @@ export default function AdminUploadDocumentPage() {
       if (!response.ok) {
         const contentType = response.headers.get("content-type");
         let errorToThrow;
-        let parsedErrorData;
+        let errorData = { error: { message: `Upload failed with status: ${response.status}`}}; // Default error
+
         if (contentType && contentType.includes("application/json")) {
-          parsedErrorData = await response.json();
-          const serverErrorMessage = (typeof parsedErrorData.error === 'object' && parsedErrorData.error !== null && parsedErrorData.error.message) 
-                                      ? parsedErrorData.error.message 
-                                      : (typeof parsedErrorData.error === 'string' ? parsedErrorData.error : "Unknown server error (JSON)");
-          errorToThrow = new Error(serverErrorMessage || `Upload failed with status: ${response.status}`);
+            try {
+                const parsedError = await response.json();
+                if (parsedError.error) {
+                    if (typeof parsedError.error === 'string') {
+                        errorData.error.message = parsedError.error;
+                    } else if (typeof parsedError.error.message === 'string') {
+                        errorData.error.message = parsedError.error.message;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to parse JSON error response:", e);
+                const errorText = await response.text(); // Get raw text if JSON parsing fails
+                console.error("Server returned non-JSON error. Response text:", errorText);
+                 errorData.error.message = `Upload failed: Server returned status ${response.status}. Response was not JSON. Check console for details.`;
+            }
         } else {
-          const errorText = await response.text();
-          console.error("Server returned non-JSON error. Response text:", errorText);
-          errorToThrow = new Error(`Upload failed: Server returned status ${response.status}. Response was not JSON. Check console for details.`);
+            const errorText = await response.text();
+            console.error("Server returned non-JSON error. Response text:", errorText);
+            errorData.error.message = `Upload failed: Server returned status ${response.status}. Response was not JSON. Check console for details.`;
         }
-        throw errorToThrow;
+        throw new Error(errorData.error.message);
       }
 
       const result = await response.json();
@@ -181,6 +213,34 @@ export default function AdminUploadDocumentPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  const handleDeleteDocument = async (docId: string, storagePath: string | undefined) => {
+    if (!storagePath) {
+      toast({ title: "Deletion Error", description: "Storage path is missing for this document. Cannot delete file from storage.", variant: "destructive" });
+      console.error(`handleDeleteDocument: storagePath is missing for docId ${docId}`);
+      return;
+    }
+    setIsDeleting(docId);
+    try {
+      const response = await fetch('/api/admin/delete-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId: docId, storagePath: storagePath, collectionName: 'uploadedDocuments' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to delete document.');
+      }
+
+      toast({ title: 'Document Deleted', description: 'The document has been successfully deleted.' });
+      fetchAdminDocuments(); // Refresh the list
+    } catch (error: any) {
+      toast({ title: 'Deletion Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
   const getFileIconElement = (contentType: string) => {
     if (contentType.startsWith("image/")) return <FileIcon className="h-5 w-5 text-purple-500" aria-label="Image file" />;
     if (contentType === "application/pdf") return <FileIcon className="h-5 w-5 text-red-500" aria-label="PDF file" />;
@@ -207,7 +267,7 @@ export default function AdminUploadDocumentPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">(Admin) Upload & Manage Documents</h1>
+          <h1 className="text-3xl font-bold tracking-tight">(Admin) Upload & Manage General Documents</h1>
         </div>
       </div>
       
@@ -320,7 +380,7 @@ export default function AdminUploadDocumentPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Uploaded Admin Documents</CardTitle>
-            <CardDescription>List of documents uploaded by administrators.</CardDescription>
+            <CardDescription>List of general documents uploaded by administrators.</CardDescription>
           </div>
            <Button variant="outline" size="icon" onClick={fetchAdminDocuments} disabled={isLoadingDocuments} aria-label="Refresh documents">
               <RefreshCw className={cn("h-4 w-4", isLoadingDocuments && "animate-spin")} />
@@ -340,7 +400,7 @@ export default function AdminUploadDocumentPage() {
             </div>
           )}
           {!isLoadingDocuments && !fetchDocError && adminDocuments.length === 0 && (
-            <p className="text-center text-muted-foreground py-10">No documents have been uploaded by admins yet.</p>
+            <p className="text-center text-muted-foreground py-10">No general documents have been uploaded yet.</p>
           )}
           {!isLoadingDocuments && !fetchDocError && adminDocuments.length > 0 && (
              <div className="overflow-x-auto">
@@ -363,13 +423,57 @@ export default function AdminUploadDocumentPage() {
                       <TableCell className="hidden md:table-cell">
                         {doc.uploadedAt ? format(new Date(doc.uploadedAt), "PP pp") : 'N/A'}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-2">
                         <Button variant="outline" size="sm" asChild>
                           <a href={doc.downloadUrl} target="_blank" rel="noopener noreferrer" download={doc.originalFileName}>
                             <Download className="mr-1 sm:mr-2 h-4 w-4" />
-                            <span className="hidden sm:inline">View/Download</span>
+                            <span className="hidden sm:inline">View</span>
                           </a>
                         </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button 
+                                    variant="destructive" 
+                                    size="icon" 
+                                    className="h-8 w-8" 
+                                    disabled={isDeleting === doc.id || !doc.storagePath}
+                                    aria-label={`Delete document ${doc.originalFileName}`}
+                                  >
+                                    {isDeleting === doc.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4" />}
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will permanently delete the document
+                                      "{doc.originalFileName}" from storage and its record from the database.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel disabled={isDeleting === doc.id}>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDeleteDocument(doc.id, doc.storagePath)}
+                                      disabled={isDeleting === doc.id}
+                                      className={buttonVariants({variant: "destructive"})}
+                                    >
+                                      {isDeleting === doc.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TooltipTrigger>
+                            {!doc.storagePath && (
+                              <TooltipContent>
+                                <p>Cannot delete: Storage path missing.</p>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        </TooltipProvider>
                       </TableCell>
                     </TableRow>
                   ))}
