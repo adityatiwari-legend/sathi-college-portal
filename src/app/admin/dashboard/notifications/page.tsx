@@ -25,6 +25,12 @@ import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"; // Added this import
 
 interface AdminNotification {
   id: string;
