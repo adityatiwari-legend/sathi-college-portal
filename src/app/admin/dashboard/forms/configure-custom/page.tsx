@@ -32,10 +32,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form"; // Removed Controller as it's not explicitly used directly
 import * as z from "zod";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton"; // Added Skeleton import
 
 const CUSTOM_FORM_ID = "mainGlobalCustomForm";
 
@@ -84,7 +86,8 @@ export default function ConfigureCustomFormPage() {
       try {
         const response = await fetch(`/api/admin/custom-form-settings?formId=${CUSTOM_FORM_ID}`);
         if (!response.ok) {
-          throw new Error("Failed to fetch custom form settings.");
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || "Failed to fetch custom form settings.");
         }
         const data = await response.json();
         if (data.settings) {
@@ -326,7 +329,7 @@ export default function ConfigureCustomFormPage() {
             <CardFooter className="border-t pt-6 flex justify-end">
               <Button type="submit" disabled={isSubmitting || isLoading}>
                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4"/>}
-                Save Custom Form Settings
+                Save Global Custom Form Settings
               </Button>
             </CardFooter>
           </form>
