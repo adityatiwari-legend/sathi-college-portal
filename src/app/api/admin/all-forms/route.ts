@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase/admin-sdk'; // UPDATED IMPORT PATH
+import { getAdminDb } from '@/lib/firebase/admin-sdk';
 import { Timestamp } from 'firebase-admin/firestore';
 
 interface SubmittedForm {
@@ -13,6 +13,23 @@ interface SubmittedForm {
   status?: string; // e.g., 'Pending', 'Approved', 'Rejected'
 }
 
+// Helper function to get default form settings for title (used for custom forms)
+async function getFormTitle(formId: string): Promise<string> {
+  const adminDb = getAdminDb();
+  if (!adminDb) return formId; // Fallback to ID if DB not available
+  try {
+    const settingsRef = adminDb.collection('customFormSettings').doc(formId);
+    const settingsDoc = await settingsRef.get();
+    if (settingsDoc.exists && settingsDoc.data()?.title) {
+      return settingsDoc.data()?.title;
+    }
+  } catch (error) {
+    console.error(`Error fetching title for custom form ${formId}:`, error);
+  }
+  return formId; // Fallback to ID if title not found or error
+}
+
+
 export async function GET(request: NextRequest) {
   console.log("/api/admin/all-forms: GET request received");
   const adminDb = getAdminDb();
@@ -23,7 +40,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const allForms: SubmittedForm[] = [];
+    const allForms: SubmittedFormEntry[] = [];
 
     // Fetch Admission Forms
     const admissionSnapshot = await adminDb.collection('admissionForms').orderBy('submittedAt', 'desc').get();
@@ -41,7 +58,7 @@ export async function GET(request: NextRequest) {
         userId: data.userId || 'Unknown User',
         userEmail: data.userEmail || 'N/A',
         submittedAt: submittedAtISO,
-        details: { fullName: data.fullName, desiredProgram: data.desiredProgram },
+        details: { fullName: data.fullName, desiredProgram: data.desiredProgram }, // Keeping original details
         status: data.status || 'Submitted',
       });
     });
@@ -63,14 +80,14 @@ export async function GET(request: NextRequest) {
         userId: data.userId || 'Unknown User',
         userEmail: data.userEmail || 'N/A',
         submittedAt: registeredAtISO,
-        details: { studentName: data.studentName, studentId: data.studentId, term: data.term, selectedCourses: data.selectedCourses },
+        details: { studentName: data.studentName, studentId: data.studentId, term: data.term, selectedCourses: data.selectedCourses }, // Keeping original details
         status: data.status || 'Submitted',
       });
     });
     
     // Fetch Custom Form Submissions
     const customFormSnapshot = await adminDb.collection('customFormSubmissions').orderBy('submittedAt', 'desc').get();
-    customFormSnapshot.docs.forEach(doc => {
+    for (const doc of customFormSnapshot.docs) { // Use for...of for async/await inside loop
       const data = doc.data();
       let submittedAtISO: string | null = null;
       if (data.submittedAt && data.submittedAt instanceof Timestamp) {
@@ -78,16 +95,20 @@ export async function GET(request: NextRequest) {
       } else if (data.submittedAt && typeof data.submittedAt === 'string') {
          try { submittedAtISO = new Date(data.submittedAt).toISOString(); } catch (e) { /* ignore */ }
       }
+      
+      // Fetch the title of the custom form definition for a better summary
+      const formTitle = data.formId ? await getFormTitle(data.formId) : "Unknown Custom Form";
+
       allForms.push({
         id: doc.id,
         formType: 'Custom Form',
         userId: data.userId || 'Unknown User',
         userEmail: data.userEmail || 'N/A',
         submittedAt: submittedAtISO,
-        details: { formId: data.formId, fieldCount: data.formData ? Object.keys(data.formData).length : 0 }, // Example summary
+        details: { formTitle: formTitle, fieldCount: data.formData ? Object.keys(data.formData).length : 0, ...data.formData }, // Include actual form data
         status: data.status || 'Submitted',
       });
-    });
+    }
 
 
     allForms.sort((a, b) => {
@@ -102,4 +123,13 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching all submitted forms (/api/admin/all-forms GET):', error);
     return NextResponse.json({ error: { message: 'Failed to fetch forms', details: error.message } }, { status: 500 });
   }
+}
+
+// Interface for the My Submitted Forms page
+interface SubmittedFormEntry {
+  id: string;
+  formType: 'Admission' | 'Course Registration' | 'Custom Form';
+  submittedAt: string | null;
+  detailsSummary: string; // A concise summary for the table
+  status?: string;
 }
