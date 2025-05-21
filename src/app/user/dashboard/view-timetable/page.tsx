@@ -13,7 +13,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { auth, db, firebaseApp } from "@/lib/firebase/config"; // db might not be directly used here, but app and auth are
+import { auth, db, app } from "@/lib/firebase/config"; // Changed firebaseApp to app
 import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
@@ -27,7 +27,7 @@ interface UploadedTimetable {
   downloadUrl: string;
   contentType: string;
   size: number;
-  uploadedAt: string | null; // API returns ISO string
+  uploadedAt: string | null; 
   uploaderContext: string;
 }
 
@@ -38,7 +38,7 @@ export default function UserViewTimetablePage() {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
   const fetchTimetables = React.useCallback(async (user: User | null) => {
-    console.log("UserViewTimetablePage: fetchTimetables called. Current auth object:", auth.currentUser, "Firebase App name:", firebaseApp?.name);
+    console.log("UserViewTimetablePage: fetchTimetables called. Current auth object:", auth.currentUser, "Firebase App name:", app?.name); // Changed firebaseApp to app
     if (!user) {
       setError("You must be logged in to view timetables.");
       setIsLoading(false);
@@ -49,12 +49,25 @@ export default function UserViewTimetablePage() {
     setIsLoading(true);
     setError(null);
 
-    try {
-      console.log(`UserViewTimetablePage: Attempting to force token refresh for user: ${user.uid}`);
-      await user.getIdToken(true); // Force refresh the ID token
-      console.log(`UserViewTimetablePage: Token refreshed successfully for user: ${user.uid}. Current auth.currentUser UID: ${auth.currentUser?.uid}`);
+    if (user) { 
+      try {
+        console.log(`UserViewTimetablePage: Attempting to force token refresh for user: ${user.uid}`);
+        await user.getIdToken(true); 
+        console.log(`UserViewTimetablePage: Token refreshed successfully for user: ${user.uid}. Current auth.currentUser: ${auth.currentUser?.uid}`);
+      } catch (tokenError: any) {
+        console.error(`UserViewTimetablePage: Failed to refresh token for user ${user.uid}:`, JSON.stringify(tokenError, Object.getOwnPropertyNames(tokenError)));
+        setError(`Authentication session issue: Could not refresh your session (Code: ${tokenError.code || 'TOKEN_REFRESH_FAILED'}). Please try logging out and back in.`);
+        setIsLoading(false);
+        setTimetables([]); 
+        return; 
+      }
+    }
 
+    try {
       console.log("UserViewTimetablePage: Fetching timetables from /api/admin/list-timetables...");
+      console.log("UserViewTimetablePage: Current Firebase app name from direct import:", app?.name); // Changed firebaseApp to app
+      console.log("UserViewTimetablePage: Firestore db instance defined:", !!db);
+
       const response = await fetch("/api/admin/list-timetables");
       
       if (!response.ok) {
@@ -65,14 +78,14 @@ export default function UserViewTimetablePage() {
       console.log(`UserViewTimetablePage: Successfully fetched ${data.length} timetables.`);
       setTimetables(data.map(tt => ({
         ...tt,
-        uploadedAt: tt.uploadedAt ? new Date(tt.uploadedAt).toISOString() : null // Ensure it remains ISO string or null
+        uploadedAt: tt.uploadedAt ? new Date(tt.uploadedAt).toISOString() : null 
       })));
     } catch (err: any) {
       console.error("UserViewTimetablePage: Full error fetching timetables:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       let errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load timetables.";
-      if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes('permission-denied'))) {
-        errorMessage = "Permission Denied. This usually means you need to create a composite index in Firestore for this query. Please check your browser's developer console. Firebase usually provides a direct link there to create the required index. Also, verify your Firestore security rules allow reads for authenticated users on the 'uploadedDocuments' collection.";
-      }
+       if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes('permission-denied'))) {
+         errorMessage = "Permission Denied: You may not have access to view these documents. Please VERIFY your Firestore security rules are correctly published and that the user is authenticated. CRITICAL: If your query involves ordering or multiple filters on different fields, Firestore likely requires a composite index. Check your browser's developer console for a direct link from Firestore to create the necessary index. This 'Permission Denied' can sometimes mask a missing index error.";
+       }
       setError(errorMessage);
       toast({ title: "Error Loading Timetables", description: errorMessage, variant: "destructive" });
     } finally {
@@ -83,7 +96,7 @@ export default function UserViewTimetablePage() {
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("UserViewTimetablePage: Auth state changed. User:", user ? user.uid : 'null');
+      console.log("UserViewTimetablePage: Auth state changed. User:", user ? user.uid : 'null', "Firebase App:", app?.name); // Changed firebaseApp to app
       setCurrentUser(user);
       if (user) {
         fetchTimetables(user);
@@ -109,7 +122,7 @@ export default function UserViewTimetablePage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  if (isLoading && currentUser === null) { // Initial auth check phase
+  if (isLoading && currentUser === null) { 
      return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
