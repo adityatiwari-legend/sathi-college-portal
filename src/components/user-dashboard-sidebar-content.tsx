@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from "react";
@@ -8,12 +9,12 @@ import {
   FileText,
   UserCircle2,
   LogOut,
-  Building2,
   BookOpen,
   Users, 
   ListChecks,
-  CalendarDays, // Added for View Timetable
-  ClipboardList, // Added for Custom Form
+  CalendarDays,
+  ClipboardList,
+  Download // Added Download icon
 } from "lucide-react";
 
 import {
@@ -32,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
 import * as React from "react";
+import Image from "next/image"; // For Amity Logo
 
 interface NavItemProps {
   href: string;
@@ -121,7 +123,7 @@ const navItems: NavItemProps[] = [
     ],
   },
   { href: "/user/dashboard/my-submitted-forms", icon: <ListChecks />, label: "My Submissions", tooltip: "View Your Submitted Forms" },
-  { href: "/user/dashboard/documents", icon: <DownloadIcon />, label: "Shared Documents", tooltip: "View Admin Shared Documents" },
+  { href: "/user/dashboard/documents", icon: <Download />, label: "Shared Documents", tooltip: "View Admin Shared Documents" },
   { href: "/user/dashboard/view-timetable", icon: <CalendarDays />, label: "View Timetable", tooltip: "View Academic Timetable" },
 ];
 
@@ -138,7 +140,7 @@ export function UserDashboardSidebarContent() {
 
   const userName = currentUser?.displayName || "User";
   const userEmail = currentUser?.email || "user@example.com";
-  const userAvatar = currentUser?.photoURL || "https://placehold.co/200x200.png"; 
+  const userAvatar = currentUser?.photoURL || ""; 
   
   const getAvatarFallback = (name?: string | null): string => {
     const processedName = name?.trim();
@@ -163,7 +165,7 @@ export function UserDashboardSidebarContent() {
     <>
       <SidebarHeader className="p-4">
         <Link href="/user/dashboard" className="flex items-center gap-2">
-          <img src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" className="h-8 w-auto"/>
+          <Image src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" width={32} height={32} className="h-8 w-auto"/>
           <h2 className="text-xl font-semibold tracking-tight text-primary">
             Sathi Portal
           </h2>
