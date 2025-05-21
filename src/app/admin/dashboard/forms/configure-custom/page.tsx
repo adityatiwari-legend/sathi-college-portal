@@ -20,7 +20,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription, // Added FormDescription here
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -269,7 +269,12 @@ export default function ConfigureCustomFormPage() {
                         <FormItem>
                           <FormLabel>Field Key/ID</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g., user_query (no spaces, unique)" {...field} disabled={isSubmitting}/>
+                            <Input 
+                              placeholder="e.g., user_query (no spaces, unique)" 
+                              {...field} 
+                              value={field.value || ''} // Ensure controlled
+                              disabled={isSubmitting}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -282,7 +287,12 @@ export default function ConfigureCustomFormPage() {
                         <FormItem>
                           <FormLabel>Field Label</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g., What is your question?" {...field} disabled={isSubmitting}/>
+                            <Input 
+                              placeholder="e.g., What is your question?" 
+                              {...field} 
+                              value={field.value || ''} // Ensure controlled
+                              disabled={isSubmitting}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
