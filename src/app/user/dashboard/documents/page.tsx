@@ -13,14 +13,12 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { auth, db, app as firebaseApp } from "@/lib/firebase/config";
-import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
+import { auth, app } from "@/lib/firebase/config"; // Use 'app'
 import { onAuthStateChanged, User } from "firebase/auth";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-
 
 interface UploadedAdminDocument {
   id: string;
@@ -39,22 +37,14 @@ export default function UserSharedDocumentsPage() {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
   const fetchDocuments = React.useCallback(async (user: User | null) => {
-    console.log("UserSharedDocumentsPage: fetchDocuments called. Current auth.currentUser from auth instance:", auth.currentUser?.uid, "User from param:", user?.uid);
-    console.log("UserSharedDocumentsPage: Firebase app name:", firebaseApp?.name);
-    console.log("UserSharedDocumentsPage: Firestore db instance defined:", !!db);
+    console.log("UserSharedDocumentsPage: fetchDocuments called. CurrentUser from auth state:", user?.uid);
+    console.log("UserSharedDocumentsPage: Firebase app name:", app?.name);
 
     if (!user) {
       setError("You must be logged in to view shared documents.");
       setIsLoading(false);
       setDocuments([]);
       console.warn("UserSharedDocumentsPage: No user found, cannot fetch documents.");
-      return;
-    }
-     if (!db) {
-      setError("Database service is not available. Please try again later.");
-      setIsLoading(false);
-      setDocuments([]);
-      console.error("UserSharedDocumentsPage: Firestore 'db' instance is not available!");
       return;
     }
 
@@ -65,7 +55,7 @@ export default function UserSharedDocumentsPage() {
       try {
         console.log(`UserSharedDocumentsPage: Attempting to force token refresh for user: ${user.uid}`);
         await user.getIdToken(true); 
-        console.log(`UserSharedDocumentsPage: Token refreshed successfully for user: ${user.uid}. Current auth.currentUser after refresh: ${auth.currentUser?.uid}`);
+        console.log(`UserSharedDocumentsPage: Token refreshed successfully for user: ${user.uid}. Current auth.currentUser: ${auth.currentUser?.uid}`);
       } catch (tokenError: any) {
         console.error(`UserSharedDocumentsPage: Failed to refresh token for user ${user.uid}:`, JSON.stringify(tokenError, Object.getOwnPropertyNames(tokenError)));
         setError(`Authentication session issue: Could not refresh your session (Code: ${tokenError.code || 'TOKEN_REFRESH_FAILED'}). Please try logging out and back in.`);
@@ -76,37 +66,35 @@ export default function UserSharedDocumentsPage() {
     }
 
     try {
-      const documentsCollection = collection(db, "uploadedDocuments");
-      console.log("UserSharedDocumentsPage: Querying 'uploadedDocuments' for admin uploads...");
-      const q = query(
-        documentsCollection,
-        where("uploaderContext", "==", "admin"), // Filter for admin uploads
-        orderBy("uploadedAt", "desc") // Order by upload date
-      );
-      console.log("UserSharedDocumentsPage: Firestore query object created. Attempting getDocs...");
-      const querySnapshot = await getDocs(q);
-      console.log(`UserSharedDocumentsPage: Firestore query for shared documents executed. Found ${querySnapshot.size} documents.`);
+      console.log("UserSharedDocumentsPage: Fetching documents from /api/admin/list-documents...");
+      const response = await fetch("/api/admin/list-documents"); // API call
       
-      const fetchedDocs = querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          originalFileName: data.originalFileName || "N/A",
-          downloadUrl: data.downloadUrl || "#",
-          contentType: data.contentType || "application/octet-stream",
-          size: data.size || 0,
-          uploadedAt: data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate().toISOString() : (typeof data.uploadedAt === 'string' ? data.uploadedAt : null),
-          uploaderContext: data.uploaderContext || "unknown",
-        };
-      }) as UploadedAdminDocument[];
+      if (!response.ok) {
+        let errorData = { error: { message: "Failed to fetch shared documents from server." }};
+        try {
+            errorData = await response.json();
+        } catch (e) {
+            console.warn("UserSharedDocumentsPage: Could not parse error response as JSON.");
+        }
+        const serverErrorMessage = (typeof errorData.error === 'object' && errorData.error !== null && errorData.error.message) 
+                                  ? errorData.error.message 
+                                  : (typeof errorData.error === 'string' ? errorData.error : `Failed to fetch shared documents: ${response.statusText}`);
+        throw new Error(serverErrorMessage);
+      }
+      const data: UploadedAdminDocument[] = await response.json();
+      console.log(`UserSharedDocumentsPage: Successfully fetched ${data.length} shared documents via API.`);
+      
+      setDocuments(data.map(doc => ({
+        ...doc,
+        uploadedAt: doc.uploadedAt ? new Date(doc.uploadedAt).toISOString() : null 
+      })));
 
-      setDocuments(fetchedDocs);
     } catch (err: any) {
       console.error("UserSharedDocumentsPage: Full error fetching shared documents:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       let errorMessage = err.message ? `${err.message} (Code: ${err.code || 'N/A'})` : "Failed to load shared documents.";
       if (err.code === 'permission-denied' || (err.message && err.message.toLowerCase().includes('permission-denied'))) {
-        errorMessage = "Permission Denied: You may not have access to view these documents. Please VERIFY your Firestore security rules are correctly published and that the user is authenticated. CRITICAL: If your query involves ordering or multiple filters on different fields, Firestore likely requires a composite index. Check your browser's developer console for a direct link from Firestore to create the necessary index. This 'Permission Denied' can sometimes mask a missing index error.";
-      }
+         errorMessage = "Permission Denied. This usually means you need to create a composite index in Firestore for this query. Please check your browser's developer console. Firebase usually provides a direct link there to create the required index. Also, verify your Firestore security rules allow reads for authenticated users on the 'uploadedDocuments' collection.";
+       }
       setError(errorMessage);
       toast({ title: "Error Loading Documents", description: errorMessage, variant: "destructive" });
     } finally {
@@ -135,12 +123,12 @@ export default function UserSharedDocumentsPage() {
   }, [fetchDocuments]);
   
   const getFileIconElement = (contentType: string) => {
-    if (contentType.startsWith("image/")) return <LucideFileIcon className="h-5 w-5 text-purple-500" />;
-    if (contentType === "application/pdf") return <LucideFileIcon className="h-5 w-5 text-red-500" />;
-    if (contentType.includes("wordprocessingml") || contentType.includes("msword")) return <LucideFileIcon className="h-5 w-5 text-blue-600" />;
-    if (contentType.includes("spreadsheetml") || contentType.includes("excel")) return <LucideFileIcon className="h-5 w-5 text-green-600" />;
-    if (contentType.includes("presentationml") || contentType.includes("powerpoint")) return <LucideFileIcon className="h-5 w-5 text-orange-500" />;
-    return <LucideFileIcon className="h-5 w-5 text-muted-foreground" />;
+    if (contentType.startsWith("image/")) return <LucideFileIcon className="h-5 w-5 text-purple-500" aria-label="Image file"/>;
+    if (contentType === "application/pdf") return <LucideFileIcon className="h-5 w-5 text-red-500" aria-label="PDF file"/>;
+    if (contentType.includes("wordprocessingml") || contentType.includes("msword")) return <LucideFileIcon className="h-5 w-5 text-blue-600" aria-label="Word document"/>;
+    if (contentType.includes("spreadsheetml") || contentType.includes("excel")) return <LucideFileIcon className="h-5 w-5 text-green-600" aria-label="Excel spreadsheet"/>;
+    if (contentType.includes("presentationml") || contentType.includes("powerpoint")) return <LucideFileIcon className="h-5 w-5 text-orange-500" aria-label="PowerPoint presentation"/>;
+    return <LucideFileIcon className="h-5 w-5 text-muted-foreground" aria-label="Generic file"/>;
   };
   
   const formatFileSize = (bytes: number) => {
@@ -185,7 +173,7 @@ export default function UserSharedDocumentsPage() {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Shared Documents</h1>
         </div>
-        <Button variant="outline" size="icon" onClick={() => currentUser && fetchDocuments(currentUser)} disabled={isLoading || !currentUser} aria-label="Refresh documents">
+        <Button variant="outline" size="icon" onClick={() => fetchDocuments(currentUser)} disabled={isLoading || !currentUser} aria-label="Refresh documents">
             <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
         </Button>
       </div>
@@ -204,7 +192,7 @@ export default function UserSharedDocumentsPage() {
               <p className="ml-2 text-muted-foreground">Loading documents...</p>
             </div>
           )}
-          {error && ( // Display error regardless of loading state if an error has occurred
+          {error && ( 
             <div role="alert" className="p-4 border rounded-md bg-destructive/10 border-destructive/30 text-destructive flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
               <p className="text-sm">{error}</p>
