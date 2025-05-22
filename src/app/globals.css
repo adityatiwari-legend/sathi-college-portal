@@ -118,6 +118,9 @@ body {
     padding: 0;
     line-height: 1.4;
   }
+  .no-print, .no-print * {
+    display: none !important;
+  }
   #printable-area, #printable-area * {
     visibility: visible;
   }
@@ -132,29 +135,26 @@ body {
     color: #000 !important; /* Ensure text is black for printing */
     background-color: #fff !important; /* Ensure background is white */
   }
-  .printable-area .shadcn-card { /* Target cards specifically within printable area */
+  #printable-area .shadcn-card { /* Target cards specifically within printable area */
     border: none !important;
     box-shadow: none !important;
     background-color: #fff !important;
     color: #000 !important;
   }
-  .printable-area .printable-data-label, 
-  .printable-area .printable-data-item dt, 
-  .printable-area .printable-header-text h2,
-  .printable-area .printable-header-text p,
-  .printable-area dl dd,
-  .printable-area .text-foreground,
-  .printable-area .text-muted-foreground,
-  .printable-area .text-primary {
+  #printable-area .printable-data-label, 
+  #printable-area .printable-data-item dt, 
+  #printable-area .printable-header-text h2,
+  #printable-area .printable-header-text p,
+  #printable-area dl dd,
+  #printable-area .text-foreground,
+  #printable-area .text-muted-foreground,
+  #printable-area .text-primary {
     color: #000 !important; /* Ensure all relevant text is black */
   }
-   .printable-area .text-muted-foreground {
+   #printable-area .text-muted-foreground {
     color: #333 !important; /* Slightly lighter gray for less emphasis if needed */
   }
 
-  .no-print {
-    display: none !important;
-  }
   .printable-header {
     display: flex;
     align-items: center;
@@ -214,3 +214,5 @@ body {
   }
 }
 
+
+    

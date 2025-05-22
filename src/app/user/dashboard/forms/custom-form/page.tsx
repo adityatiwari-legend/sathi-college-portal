@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form"; // Added useFieldArray
+import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { ArrowLeft, Send, Loader2, Info, ShieldAlert, FileText, MessageSquareText, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,13 +27,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { auth, db } from "@/lib/firebase/config"; // Ensure db is imported if needed for submission status check
+import { auth, db } from "@/lib/firebase/config";
 import { User } from "firebase/auth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { collection, query, where, getDocs, Timestamp } from "firebase/firestore"; // For submission status check
+import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { format } from 'date-fns';
 
-const CUSTOM_FORM_ID = "mainGlobalCustomForm"; // This is the ID of the form settings document
+const CUSTOM_FORM_ID = "mainGlobalCustomForm";
 
 interface CustomFieldSetting {
   key: string;
@@ -49,7 +49,6 @@ interface CustomFormSettings {
   fields: CustomFieldSetting[];
 }
 
-// Dynamically create Zod schema based on form settings
 const createDynamicSchema = (fields: CustomFieldSetting[]) => {
   const schemaObject: Record<string, z.ZodTypeAny> = {};
   fields.forEach(field => {
@@ -60,7 +59,7 @@ const createDynamicSchema = (fields: CustomFieldSetting[]) => {
         if (field.isRequired) {
           fieldSchema = fieldSchema.min(1, `${field.label} is required.`);
         } else {
-          fieldSchema = fieldSchema.optional().or(z.literal("")); // Allow empty string for optional
+          fieldSchema = fieldSchema.optional().or(z.literal(""));
         }
         break;
       case "text":
@@ -69,7 +68,7 @@ const createDynamicSchema = (fields: CustomFieldSetting[]) => {
         if (field.isRequired) {
           fieldSchema = fieldSchema.min(1, `${field.label} is required.`);
         } else {
-          fieldSchema = fieldSchema.optional().or(z.literal("")); // Allow empty string for optional
+          fieldSchema = fieldSchema.optional().or(z.literal(""));
         }
         break;
     }
@@ -78,7 +77,6 @@ const createDynamicSchema = (fields: CustomFieldSetting[]) => {
   return z.object(schemaObject);
 };
 
-
 export default function UserCustomFormPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
@@ -86,11 +84,9 @@ export default function UserCustomFormPage() {
   const [isLoadingSettings, setIsLoadingSettings] = React.useState(true);
   const [settingsError, setSettingsError] = React.useState<string | null>(null);
   
-  const [isLoadingStatus, setIsLoadingStatus] = React.useState(true); // For checking existing submission
+  const [isLoadingStatus, setIsLoadingStatus] = React.useState(false); // No longer used for submission check, only for initial load
   const [submittedData, setSubmittedData] = React.useState<Record<string, any> | null>(null);
 
-
-  // The form instance will be re-initialized once settings are fetched
   const form = useForm<any>({ 
     resolver: formSettings ? zodResolver(createDynamicSchema(formSettings.fields)) : undefined,
     defaultValues: {},
@@ -100,7 +96,7 @@ export default function UserCustomFormPage() {
     if (formSettings) {
       const dynamicSchema = createDynamicSchema(formSettings.fields);
       const defaultVals = formSettings.fields.reduce((acc, field) => {
-        acc[field.key] = ""; // Initialize with empty string
+        acc[field.key] = "";
         return acc;
       }, {} as Record<string, string>);
       
@@ -111,7 +107,6 @@ export default function UserCustomFormPage() {
     }
   }, [formSettings, form]);
 
-
   React.useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
@@ -120,12 +115,9 @@ export default function UserCustomFormPage() {
   }, []);
 
   React.useEffect(() => {
-    const fetchSettingsAndStatus = async () => {
+    const fetchSettings = async () => {
       setIsLoadingSettings(true);
-      setIsLoadingStatus(true);
       setSettingsError(null);
-      setSubmittedData(null); 
-
       try {
         const settingsResponse = await fetch(`/api/admin/custom-form-settings?formId=${CUSTOM_FORM_ID}`);
         if (!settingsResponse.ok) {
@@ -134,27 +126,20 @@ export default function UserCustomFormPage() {
         }
         const settingsData = await settingsResponse.json();
         setFormSettings(settingsData.settings);
-
-        // Removed existing submission check as per previous request to allow multiple submissions
-        // If you need to re-add it, ensure queries are correct and indexes exist.
-
       } catch (error: any) {
         setSettingsError(error.message);
         toast({ title: "Error Loading Form", description: error.message, variant: "destructive" });
       } finally {
         setIsLoadingSettings(false);
-        setIsLoadingStatus(false); // Status check is removed, so set loading to false
       }
     };
     if(currentUser === null && auth.currentUser) { 
         setCurrentUser(auth.currentUser);
     }
     if (currentUser !== undefined) { 
-        fetchSettingsAndStatus();
+        fetchSettings();
     }
-
   }, [currentUser]); 
-
 
   async function onSubmit(data: Record<string, any>) {
     if (!formSettings?.isActive) {
@@ -184,11 +169,12 @@ export default function UserCustomFormPage() {
         throw new Error(errorData.error?.message || "Failed to submit custom form.");
       }
       
-      setSubmittedData(data); 
+      setSubmittedData(data); // Store submitted data for printing
       toast({
         title: "Form Submitted",
         description: `${formSettings?.title || 'Your form'} has been submitted successfully.`,
       });
+      // Do not reset the form here, as we want to show the submittedData view
     } catch (error: any) {
       toast({
         title: "Submission Failed",
@@ -205,7 +191,7 @@ export default function UserCustomFormPage() {
   };
 
   const handleSubmitAnother = () => {
-    setSubmittedData(null);
+    setSubmittedData(null); // Clear submitted data
     if (formSettings) { 
          const defaultVals = formSettings.fields.reduce((acc, field) => {
             acc[field.key] = "";
@@ -214,7 +200,6 @@ export default function UserCustomFormPage() {
         form.reset(defaultVals);
     }
   };
-
 
   if (isLoadingSettings || isLoadingStatus) {
     return (
@@ -287,7 +272,6 @@ export default function UserCustomFormPage() {
     );
   }
 
-
   if (!formSettings.isActive) {
     return (
       <div className="space-y-6">
@@ -315,7 +299,7 @@ export default function UserCustomFormPage() {
   if (submittedData) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 no-print">
           <Button variant="outline" size="icon" asChild>
             <Link href="/user/dashboard/forms">
               <ArrowLeft className="h-4 w-4" />
@@ -323,7 +307,7 @@ export default function UserCustomFormPage() {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">{formSettings.title} - Submission</h1>
         </div>
-        <Card className="shadow-lg max-w-2xl mx-auto">
+        <Card className="shadow-lg max-w-2xl mx-auto no-print">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><CheckCircle className="h-6 w-6 text-green-500" />Submission Successful!</CardTitle>
             <CardDescription>{formSettings.description}</CardDescription>
@@ -332,7 +316,7 @@ export default function UserCustomFormPage() {
             <p className="text-muted-foreground mb-4">
               Your response for "{formSettings.title}" has been recorded. You can print a copy for your records.
             </p>
-            <div className="space-x-2 no-print">
+            <div className="space-x-2">
               <Button onClick={handlePrint}>
                 <Printer className="mr-2 h-4 w-4" /> Print Submission
               </Button>
@@ -366,7 +350,7 @@ export default function UserCustomFormPage() {
             ))}
              <div className="printable-data-item">
                 <dt className="font-semibold printable-data-label">Submitted On:</dt>
-                <dd className="ml-4">{format(new Date(), "PP pp")}</dd>
+                <dd className="ml-4">{format(new Date(), "PP pp")}</dd> 
              </div>
              {currentUser?.email && (
                 <div className="printable-data-item">
@@ -384,10 +368,9 @@ export default function UserCustomFormPage() {
     );
   }
   
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
             <Link href="/user/dashboard/forms">
@@ -398,7 +381,7 @@ export default function UserCustomFormPage() {
         </div>
       </div>
 
-      <Card className="shadow-lg max-w-2xl mx-auto">
+      <Card className="shadow-lg max-w-2xl mx-auto no-print">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardHeader>
@@ -421,7 +404,7 @@ export default function UserCustomFormPage() {
                           <Textarea
                             placeholder={`Enter ${fieldSetting.label.toLowerCase()}`}
                             {...field}
-                            value={field.value || ''} // Ensure controlled
+                            value={field.value || ''} 
                             disabled={isSubmitting}
                             className="resize-y min-h-[100px]"
                           />
@@ -430,7 +413,7 @@ export default function UserCustomFormPage() {
                             type={fieldSetting.type === "text" ? "text" : "text"} 
                             placeholder={`Enter ${fieldSetting.label.toLowerCase()}`}
                             {...field}
-                            value={field.value || ''} // Ensure controlled
+                            value={field.value || ''} 
                             disabled={isSubmitting}
                           />
                         )}
@@ -457,4 +440,4 @@ export default function UserCustomFormPage() {
     </div>
   );
 }
-
+    
