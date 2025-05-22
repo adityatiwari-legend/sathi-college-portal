@@ -29,7 +29,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { auth, db, app as firebaseApp } from "@/lib/firebase/config";
 import { User, onAuthStateChanged } from "firebase/auth";
-import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, parseISO } from 'date-fns';
 import Image from "next/image";
@@ -106,7 +105,7 @@ const formatDisplayValue = (key: string, value: any): string | React.ReactNode =
   return String(value);
 };
 
-const renderFieldDetail = (fieldSetting: CustomFieldSetting, value: any) => {
+const renderFieldDetail = (fieldSetting: CustomFieldSetting, value: any, indentLevel = 0) => {
   const prettyLabel = fieldSetting.label
     .replace(/([A-Z])/g, ' $1')
     .replace(/_/g, ' ')
@@ -114,8 +113,8 @@ const renderFieldDetail = (fieldSetting: CustomFieldSetting, value: any) => {
 
   return (
     <React.Fragment key={fieldSetting.key}>
-      <dt className="font-semibold text-sm text-foreground printable-data-label">{prettyLabel}:</dt>
-      <dd className="ml-4 text-sm text-muted-foreground break-words">{formatDisplayValue(fieldSetting.key, value)}</dd>
+      <dt className={cn("font-semibold text-sm text-foreground printable-data-label", indentLevel > 0 && "nested-dt")}>{prettyLabel}:</dt>
+      <dd className={cn("ml-4 text-sm text-muted-foreground break-words", indentLevel > 0 && "nested-dd")}>{formatDisplayValue(fieldSetting.key, value)}</dd>
     </React.Fragment>
   );
 };
@@ -127,17 +126,18 @@ export default function UserCustomFormPage() {
   const [formSettings, setFormSettings] = React.useState<CustomFormSettings | null>(null);
   const [isLoadingSettings, setIsLoadingSettings] = React.useState(true);
   const [settingsError, setSettingsError] = React.useState<string | null>(null);
-  const [isLoadingStatus, setIsLoadingStatus] = React.useState(true); // For checking previous submissions
-  const [hasSubmittedPreviously, setHasSubmittedPreviously] = React.useState(false);
+  
+  // State to manage the view: form, submitted-data-preview, or already-submitted-message
+  const [viewState, setViewState] = React.useState<"loading" | "form" | "submitted_preview" | "already_submitted" | "error" | "form_inactive">("loading");
   const [submittedData, setSubmittedData] = React.useState<Record<string, any> | null>(null);
-  const [isLoadingPage, setIsLoadingPage] = React.useState(true);
+
 
   const form = useForm<any>({
     defaultValues: {}, 
   });
 
   const fetchFormDefinition = React.useCallback(async () => {
-    setIsLoadingSettings(true);
+    setViewState("loading");
     setSettingsError(null);
     console.log("UserCustomFormPage: Fetching form definition for", CUSTOM_FORM_ID);
     try {
@@ -150,15 +150,20 @@ export default function UserCustomFormPage() {
       if (data.settings) {
         console.log("UserCustomFormPage: Form settings received:", data.settings);
         setFormSettings(data.settings);
-        // Initialize form with dynamic schema and default values
+        if (!data.settings.isActive) {
+          setViewState("form_inactive");
+          return;
+        }
+        
         const dynamicSchema = createDynamicSchema(data.settings.fields || []);
         const defaultVals = (data.settings.fields || []).reduce((acc: Record<string, string>, field: CustomFieldSetting) => {
           acc[field.key] = "";
           return acc;
         }, {});
         form.reset(defaultVals, { 
-          resolver: zodResolver(dynamicSchema) as any, // Cast to any if type inference is tricky
+          resolver: zodResolver(dynamicSchema) as any,
         });
+        setViewState("form"); // Show form after settings are loaded and form is active
       } else {
         throw new Error("Form definition not found or is invalid.");
       }
@@ -166,54 +171,21 @@ export default function UserCustomFormPage() {
       console.error("UserCustomFormPage: Error fetching form settings:", error);
       setSettingsError(error.message);
       toast({ title: "Error Loading Form Configuration", description: error.message, variant: "destructive" });
-    } finally {
-      setIsLoadingSettings(false);
+      setViewState("error");
     }
   }, [form]);
 
-  const checkPreviousSubmission = React.useCallback(async (user: User) => {
-    if (!user || !db || !formSettings?.fields || formSettings.fields.length === 0) {
-        setIsLoadingStatus(false);
-        return;
-    }
-    setIsLoadingStatus(true);
-    console.log(`UserCustomFormPage: Checking previous submission for user ${user.uid} and formId ${CUSTOM_FORM_ID}`);
-    try {
-      const submissionsRef = collection(db, "customFormSubmissions");
-      const q = query(submissionsRef, 
-        where("userId", "==", user.uid), 
-        where("formId", "==", CUSTOM_FORM_ID),
-        orderBy("submittedAt", "desc"), // To get the latest if needed, though we just check existence
-        // limit(1) // We only need to know if at least one exists
-      );
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        console.log(`UserCustomFormPage: Previous submission found for user ${user.uid} and formId ${CUSTOM_FORM_ID}.`);
-        setHasSubmittedPreviously(true);
-      } else {
-        console.log(`UserCustomFormPage: No previous submission found for user ${user.uid} and formId ${CUSTOM_FORM_ID}.`);
-        setHasSubmittedPreviously(false);
-      }
-    } catch (error: any) {
-      console.error("UserCustomFormPage: Error checking existing custom submission:", error);
-      // Don't block form display for this, just log it.
-      toast({ title: "Info", description: "Could not verify previous submissions, proceed with caution.", variant: "default" });
-    } finally {
-      setIsLoadingStatus(false);
-    }
-  }, [formSettings]);
-
   React.useEffect(() => {
     console.log("UserCustomFormPage: Auth effect running.");
+    setViewState("loading");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log("UserCustomFormPage: Auth state changed. User:", user ? user.uid : 'null');
       setCurrentUser(user);
       if (user) {
         fetchFormDefinition(); 
       } else {
-        setIsLoadingPage(false);
-        setIsLoadingSettings(false); 
         setSettingsError("You must be logged in to view this form.");
+        setViewState("error");
       }
     });
     return () => {
@@ -221,20 +193,6 @@ export default function UserCustomFormPage() {
       unsubscribe();
     };
   }, [fetchFormDefinition]);
-  
-  React.useEffect(() => {
-    if (currentUser && formSettings) {
-      // Check for previous submissions once both user and form settings are loaded
-      // This check is now part of the original design we are reverting
-      // checkPreviousSubmission(currentUser);
-    }
-  }, [currentUser, formSettings, checkPreviousSubmission]);
-
-  React.useEffect(() => {
-    if (!isLoadingSettings && (!currentUser || currentUser)) { 
-      setIsLoadingPage(false);
-    }
-  }, [isLoadingSettings, currentUser]);
 
 
   async function onSubmit(data: Record<string, any>) {
@@ -244,6 +202,7 @@ export default function UserCustomFormPage() {
     }
     if (!formSettings?.isActive) {
       toast({ title: "Form Closed", description: "This form is currently not accepting submissions.", variant: "destructive" });
+      setViewState("form_inactive");
       return;
     }
 
@@ -271,11 +230,11 @@ export default function UserCustomFormPage() {
       const result = await response.json();
       console.log("UserCustomFormPage: Custom form submission successful:", result);
       setSubmittedData(data); 
+      setViewState("submitted_preview");
       toast({
         title: "Form Submitted",
         description: `${formSettings?.title || 'Your form'} has been submitted successfully.`,
       });
-      // Do not reset the form here if we are showing the submitted data immediately
     } catch (error: any) {
       console.error("UserCustomFormPage: Custom form submission error (client-side catch):", error);
       toast({
@@ -287,19 +246,37 @@ export default function UserCustomFormPage() {
       setIsSubmitting(false);
     }
   }
+  
+  const handlePrint = () => {
+    console.log("Print button clicked...");
+    if (typeof window !== 'undefined' && window.print) {
+        window.print();
+    } else {
+        console.warn("Print function is not available in this environment.");
+        toast({
+            title: "Print Not Available",
+            description: "Printing is not available in this environment. Please try opening in a standard browser window.",
+            variant: "default",
+        });
+    }
+  };
 
   const handleSubmitAnother = () => {
-    setSubmittedData(null); // Clear submitted data to show the form again
+    setSubmittedData(null); 
     if (formSettings) { 
          const defaultVals = formSettings.fields.reduce((acc, field) => {
             acc[field.key] = "";
             return acc;
         }, {} as Record<string, string>);
         form.reset(defaultVals);
+        setViewState("form");
+    } else {
+        setViewState("loading"); // Fallback if settings somehow got cleared
+        fetchFormDefinition();
     }
   };
 
-  if (isLoadingPage) {
+  if (viewState === "loading") {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -324,7 +301,7 @@ export default function UserCustomFormPage() {
     );
   }
 
-  if (settingsError) {
+  if (viewState === "error") {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -352,7 +329,7 @@ export default function UserCustomFormPage() {
     );
   }
   
-  if (!formSettings || !formSettings.fields) { // Allow empty fields array for now
+  if (!formSettings || (viewState !== "submitted_preview" && !formSettings.fields)) {
      return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -368,14 +345,14 @@ export default function UserCustomFormPage() {
             <CardTitle className="flex items-center gap-2"><Info className="h-6 w-6 text-primary"/>Form Not Configured</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">This custom form has not been fully configured by the administrator yet.</p>
+            <p className="text-muted-foreground">This custom form has not been fully configured by the administrator yet or has no fields defined.</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (!formSettings.isActive && !submittedData) {
+  if (viewState === "form_inactive" && !submittedData) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -399,7 +376,7 @@ export default function UserCustomFormPage() {
     );
   }
 
-  if (submittedData) {
+  if (viewState === "submitted_preview" && submittedData && formSettings) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between no-print">
@@ -411,19 +388,27 @@ export default function UserCustomFormPage() {
               </Button>
               <h1 className="text-3xl font-bold tracking-tight">{formSettings.title} - Submission Receipt</h1>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleSubmitAnother}>Submit Another Response</Button>
-            <Button asChild><Link href="/user/dashboard">Back to Dashboard</Link></Button>
-          </div>
         </div>
         
-        <div className="p-4 my-4 border rounded-md bg-green-50 border-green-200 text-green-700 flex items-center gap-2 no-print">
-          <CheckCircle className="h-5 w-5" />
-          <p className="text-sm">Your response for "{formSettings.title}" has been recorded. You can print this page (using Ctrl+P or Cmd+P) for your records.</p>
-        </div>
+        <Card className="shadow-lg max-w-2xl mx-auto no-print">
+           <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="h-6 w-6 text-green-500" />
+                Submission Successful!
+            </CardTitle>
+            <CardDescription>
+                Your response for "{formSettings.title}" has been recorded. 
+                You can print this page (Ctrl+P or Cmd+P) for your records.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleSubmitAnother}>Submit Another Response</Button>
+            <Button asChild><Link href="/user/dashboard">Back to Dashboard</Link></Button>
+          </CardFooter>
+        </Card>
 
         {/* This is the actual printable content, now also visible on screen after submission */}
-        <div id="printable-area" className="printable-area bg-card text-card-foreground shadow-md p-6 md:p-8 rounded-lg max-w-3xl mx-auto mt-4"> 
+        <div id="printable-area" className="printable-area bg-card text-card-foreground shadow-md p-6 md:p-8 rounded-lg max-w-3xl mx-auto mt-4 border"> 
           <div className="printable-header">
              <Image src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" width={60} height={60} className="printable-logo" />
             <div className="printable-header-text">
@@ -460,6 +445,7 @@ export default function UserCustomFormPage() {
     );
   }
   
+  // Default: Show the form
   return (
     <div className="space-y-6 no-print">
       <div className="flex items-center justify-between">
@@ -502,7 +488,7 @@ export default function UserCustomFormPage() {
                           />
                         ) : (
                           <Input
-                            type={fieldSetting.type === "text" ? "text" : "text"}
+                            type={fieldSetting.type === "text" ? "text" : "text"} // Default to text if type is unknown, though Zod should catch
                             placeholder={`Enter ${fieldSetting.label.toLowerCase()}`}
                             {...field}
                             value={field.value || ''} 

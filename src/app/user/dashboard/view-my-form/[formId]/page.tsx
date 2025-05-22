@@ -36,119 +36,89 @@ import Image from "next/image";
 
 interface FormDetail {
   id: string;
-  formType: string; // This will be 'Admission', 'Course Registration', or 'Custom Form'
-  [key: string]: any; // For dynamic fields
+  formType: string; 
+  [key: string]: any; 
 }
 
-// Order for displaying top-level fields. Others will be appended.
 const fieldOrder = [
   "formId", "userId", "userEmail", "submittedAt", "registeredAt", "uploadedAt", "status",
-  // Admission Form Specific
   "fullName", "dateOfBirth", "email", "phone", "address", "city", "state", "zipCode", "country",
   "desiredProgram", "previousSchool", "previousGrade", "statement",
-  // Course Registration Specific
   "studentName", "studentId", "term", "selectedCourses",
-  // Custom Form Data container
   "formData",
-  // General details container
   "details" 
 ];
 
-// Helper function to format values for display
 const formatDisplayValue = (key: string, value: any): string | React.ReactNode => {
-  if (value === null || typeof value === 'undefined') return <span className="italic text-muted-foreground">Not provided</span>;
+  if (value === null || typeof value === 'undefined' || value === "") return <span className="italic text-muted-foreground">Not provided</span>;
   if (typeof value === 'boolean') return value ? "Yes" : "No";
   
-  // Attempt to parse and format if it's a known date key or a valid date string/object
-  if ((key.toLowerCase().includes('date') || 
-       key.toLowerCase().endsWith('at') || 
-       key.toLowerCase().endsWith('dob')) && 
-      (typeof value === 'string' || value instanceof Date)) {
-    try {
-      const dateObj = typeof value === 'string' ? parseISO(value) : value;
-      if (dateObj && !isNaN(dateObj.getTime())) {
-        return format(dateObj, "PP pp"); 
+  const dateKeys = ['submittedAt', 'registeredAt', 'uploadedAt', 'dateOfBirth'];
+  if (dateKeys.includes(key) || (typeof key === 'string' && (key.toLowerCase().includes('date') || key.toLowerCase().endsWith('at')))) {
+      if (typeof value === 'string') {
+          try {
+              const dateFromISO = parseISO(value);
+              if (!isNaN(dateFromISO.getTime())) return format(dateFromISO, "PP pp");
+          } catch (e) { /* Fall through if not ISO */ }
+          try {
+              const dateFromGeneric = new Date(value);
+              if (!isNaN(dateFromGeneric.getTime())) return format(dateFromGeneric, "PP pp");
+          } catch (e) { /* Fall through if not generic date */ }
+      } else if (value instanceof Date && !isNaN(value.getTime())) {
+          return format(value, "PP pp");
       }
-    } catch (e) { /* Not a parsable ISO string, fall through */ }
-  }
-  // Fallback for non-ISO date strings that JS can parse
-  if (typeof value === 'string' && (key.toLowerCase().includes('date') || key.toLowerCase().endsWith('at'))) {
-    try {
-      const dateFromGeneric = new Date(value);
-      if (!isNaN(dateFromGeneric.getTime())) {
-        return format(dateFromGeneric, "PP pp");
-      }
-    } catch (e) { /* Still not a valid date string, fall through */ }
   }
   
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === 'object' && !(value instanceof Date) && !Array.isArray(value)) {
-    // For 'formData' or 'details' objects, we handle them in renderDetailItem to create nested lists
     if (key === 'formData' || key === 'details') {
         return <span className="italic text-muted-foreground">[Details below]</span>;
     }
-    return JSON.stringify(value, null, 2); // Fallback for other objects
+    try {
+        return <pre className="whitespace-pre-wrap text-xs bg-muted/50 p-2 rounded-sm">{JSON.stringify(value, null, 2)}</pre>;
+    } catch {
+        return "[Object]";
+    }
   }
   return String(value);
 };
 
-// Recursive function to render form details
-const renderDetailItem = (label: string, value: any, indentLevel = 0): React.ReactNode => {
+const renderDetailItem = (label: string, value: any, isNested: boolean = false): React.ReactNode => {
   const prettyLabel = label
     .replace(/([A-Z])/g, ' $1') 
     .replace(/_/g, ' ')        
     .replace(/^./, (str) => str.toUpperCase()); 
 
-  // Handle nested objects like formData or details by creating a sub-list
   if ((label === 'formData' || label === 'details') && typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)) {
     const entries = Object.entries(value);
     if (entries.length === 0) {
       return (
-        <div key={label} className={cn("printable-data-item", indentLevel > 0 ? `ml-${indentLevel * 4}` : 'ml-0')}>
+        <div key={label} className={cn("printable-data-item", isNested && "ml-4")}>
           <dt className="font-semibold text-sm text-foreground printable-data-label">{prettyLabel}:</dt>
           <dd className="ml-4 text-sm text-muted-foreground italic">No additional details provided.</dd>
         </div>
       );
     }
     return (
-      <div key={label} className={cn(`mb-3 printable-data-item`, indentLevel > 0 && `ml-${indentLevel * 4}`)}>
+      <div key={label} className={cn("mb-3 printable-data-item", isNested && "ml-4")}>
         <dt className="font-semibold text-base text-foreground border-b pb-1 mb-2 printable-data-label">{prettyLabel}</dt>
-        <dd className={`ml-0 mt-1 space-y-2`}>
+        <dd className="ml-0 mt-1 space-y-2">
           <dl className="space-y-1 ml-4 pl-4 border-l border-muted nested-dl-print">
             {entries.map(([subKey, subValue]) =>
-              renderDetailItem(subKey, subValue, indentLevel + 1) 
+              renderDetailItem(subKey, subValue, true) 
             )}
           </dl>
         </dd>
       </div>
     );
   }
-
-  // Handle arrays specifically, could be course lists etc.
-  if (Array.isArray(value)) {
-    return (
-      <div key={label} className={cn(`printable-data-item`, indentLevel > 0 ? `ml-${indentLevel * 4}` : 'ml-0')}>
-        <dt className="font-semibold text-sm text-foreground printable-data-label">{prettyLabel}:</dt>
-        <dd className="ml-4 text-sm text-muted-foreground">
-          {value.length > 0 ? (
-            <ul className="list-disc list-inside">
-              {value.map((item, index) => <li key={index}>{formatDisplayValue(subKeyFromArrayItem(item, index) , item)}</li>)}
-            </ul>
-          ) : (
-            <span className="italic">None</span>
-          )}
-        </dd>
-      </div>
-    );
-  }
-  // Helper to create a pseudo-key for array item formatting, not strictly necessary if formatDisplayValue doesn't rely on key for arrays
-  const subKeyFromArrayItem = (item: any, index: number) => `item_${index}`;
-
+  
+  const itemClass = isNested ? "nested-dt-dd-pair" : "printable-data-item";
 
   return (
-    <div key={label} className={cn(`printable-data-item`, indentLevel > 0 ? `ml-${indentLevel * 4}` : 'ml-0')}>
-      <dt className="font-semibold text-sm text-foreground printable-data-label">{prettyLabel}:</dt>
-      <dd className="ml-4 text-sm text-muted-foreground break-words">{formatDisplayValue(label, value)}</dd>
+    <div key={label} className={cn("flex flex-col sm:flex-row sm:gap-2", itemClass)}>
+      <dt className={cn("sm:w-1/3 font-semibold text-sm text-foreground printable-data-label", isNested && "nested-dt")}>{prettyLabel}:</dt>
+      <dd className={cn("sm:w-2/3 text-sm text-muted-foreground break-words", isNested && "nested-dd")}>{formatDisplayValue(label, value)}</dd>
     </div>
   );
 };
@@ -160,7 +130,7 @@ export default function ViewUserFormDetailsPage() {
   const router = useRouter();
 
   const formId = params.formId as string;
-  const formTypeQueryParam = searchParams.get('type'); // Can be null
+  const formTypeQueryParam = searchParams.get('type'); 
 
   const [formDetails, setFormDetails] = React.useState<FormDetail | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -174,7 +144,6 @@ export default function ViewUserFormDetailsPage() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log("ViewUserFormDetailsPage: Auth state changed. User:", user ? user.uid : 'null');
       setCurrentUser(user);
-      // Fetching will now be triggered by the useEffect below that depends on currentUser, formId, formTypeQueryParam
     });
     return () => {
       console.log("ViewUserFormDetailsPage: Cleaning up auth subscription.");
@@ -186,9 +155,9 @@ export default function ViewUserFormDetailsPage() {
     const fetchFormDetails = async () => {
       if (!currentUser || !formId || !formTypeQueryParam) {
         console.log("ViewUserFormDetailsPage: Skipping fetch, missing user, formId, or formType. User:", currentUser?.uid, "FormId:", formId, "FormType:", formTypeQueryParam);
-        if (!currentUser && !isLoading) setError("Authentication required to view form details.");
-        if ((!formId || !formTypeQueryParam) && !isLoading) setError("Form ID or Type missing in URL.");
-        setIsLoading(false); // Ensure loading stops if params are missing after auth check
+        if (!isLoading && !currentUser ) setError("Authentication required to view form details.");
+        if (!isLoading && (!formId || !formTypeQueryParam)) setError("Form ID or Type missing in URL.");
+        setIsLoading(false); 
         return;
       }
 
@@ -230,22 +199,21 @@ export default function ViewUserFormDetailsPage() {
     if (currentUser && formId && formTypeQueryParam) {
       fetchFormDetails();
     } else if (!isLoading && (!currentUser || !formId || !formTypeQueryParam)) {
-      // If not loading and any crucial param is missing (after initial auth check)
       setIsLoading(false);
       if (!currentUser) setError("Authentication required.");
       else setError("Form ID or Type missing in URL.");
     }
-  }, [currentUser, formId, formTypeQueryParam]); // Removed isLoading from dependency array
+  }, [currentUser, formId, formTypeQueryParam, isLoading]); 
 
   const handlePrint = () => {
     console.log("ViewUserFormDetailsPage: Print button clicked...");
     if (typeof window !== 'undefined' && window.print) {
       window.print();
     } else {
-      console.warn("ViewUserFormDetailsPage: window.print is not available. This might be due to a sandboxed environment.");
+      console.warn("ViewUserFormDetailsPage: window.print is not available.");
       toast({
         title: "Print Not Available",
-        description: "Printing is not available in this environment. Please try opening the page in a new tab or standard browser window if you are in an embedded view.",
+        description: "Printing is not available in this environment. Please try opening in a new tab or standard browser window.",
         variant: "default",
         duration: 7000,
       });
@@ -353,7 +321,7 @@ export default function ViewUserFormDetailsPage() {
   }
   
   const orderedDetails = Object.entries(formDetails)
-    .filter(([key]) => !['id', 'formType', 'userId', 'userEmail'].includes(key)) 
+    .filter(([key]) => !['id', 'userId', 'userEmail', 'formType', 'submittedAt', 'registeredAt', 'uploadedAt', 'status'].includes(key) && key !== 'formData' && key !== 'details')
     .sort(([keyA], [keyB]) => {
       const indexA = fieldOrder.indexOf(keyA);
       const indexB = fieldOrder.indexOf(keyB);
@@ -362,6 +330,9 @@ export default function ViewUserFormDetailsPage() {
       if (indexB === -1) return -1; 
       return indexA - indexB; 
     });
+
+  const formDataObject = formDetails.formData || formDetails.details;
+
 
   return (
     <div className="space-y-6">
@@ -408,7 +379,32 @@ export default function ViewUserFormDetailsPage() {
           </AlertDialog>
         </div>
       </div>
+      
+      {/* Screen view (non-printable) */}
+      <Card className="shadow-lg max-w-3xl mx-auto no-print">
+         <CardHeader>
+            <CardTitle>{formDetails.formType}</CardTitle>
+            <CardDescription>
+              Submitted on: {formatDisplayValue('submittedAt', formDetails.submittedAt || formDetails.registeredAt || formDetails.uploadedAt) || "N/A"}
+              {formDetails.status && <><br/>Status: <span className={cn(
+                  "font-semibold",
+                  formDetails.status === "Approved" ? "text-green-600" :
+                  formDetails.status === "Rejected" ? "text-red-600" :
+                  "text-yellow-600"
+                )}>{formDetails.status}</span></>}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-3">
+              {orderedDetails.map(([key, value]) => renderDetailItem(key, value))}
+              {formDataObject && typeof formDataObject === 'object' && Object.keys(formDataObject).length > 0 && (
+                renderDetailItem(formDetails.formType === 'Custom Form' ? 'Custom Fields' : 'Additional Details', formDataObject)
+              )}
+            </dl>
+          </CardContent>
+      </Card>
 
+      {/* Printable Area (Hidden on screen by default) */}
       <div id="printable-area" className="print-only">
         <div className="printable-header">
            <Image src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" width={60} height={60} className="printable-logo" />
@@ -418,19 +414,21 @@ export default function ViewUserFormDetailsPage() {
           </div>
         </div>
 
-        <Card className="shadow-lg max-w-3xl mx-auto my-6 shadcn-card">
+        <Card className="shadow-none border-none shadcn-card"> {/* No shadow/border for print */}
           <CardHeader>
-            <CardTitle>{formDetails.formType} - Reference ID: {formDetails.id}</CardTitle>
+            <CardTitle>{formDetails.formType}</CardTitle>
             <CardDescription>
-              Submitted on: {formDetails.submittedAt ? formatDisplayValue('submittedAt', formDetails.submittedAt) : "N/A"}
-              <br/>
-              User ID: {formDetails.userId || "N/A"}
-              {formDetails.userEmail && <><br/>User Email: {formDetails.userEmail}</>}
+              Submitted on: {formatDisplayValue('submittedAt', formDetails.submittedAt || formDetails.registeredAt || formDetails.uploadedAt) || "N/A"}
+              {currentUser?.email && <><br/>Submitted by: {currentUser.email}</>}
+              {formDetails.status && <><br/>Status: {formDetails.status}</>}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <dl className="space-y-3">
+            <dl className="space-y-2">
               {orderedDetails.map(([key, value]) => renderDetailItem(key, value))}
+              {formDataObject && typeof formDataObject === 'object' && Object.keys(formDataObject).length > 0 && (
+                 renderDetailItem(formDetails.formType === 'Custom Form' ? 'Custom Fields Data' : 'Additional Details', formDataObject)
+              )}
             </dl>
           </CardContent>
         </Card>
@@ -440,25 +438,8 @@ export default function ViewUserFormDetailsPage() {
             <p>Sathi College, Gwalior, Madhya Pradesh, India</p>
         </div>
       </div>
-
-       {/* Screen view (non-printable) */}
-      <Card className="shadow-lg max-w-3xl mx-auto no-print">
-         <CardHeader>
-            <CardTitle>{formDetails.formType} - Reference ID: {formDetails.id}</CardTitle>
-            <CardDescription>
-              Submitted on: {formDetails.submittedAt ? formatDisplayValue('submittedAt', formDetails.submittedAt) : "N/A"}
-              <br/>
-              User ID: {formDetails.userId || "N/A"}
-              {formDetails.userEmail && <><br/>User Email: {formDetails.userEmail}</>}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <dl className="space-y-3">
-              {orderedDetails.map(([key, value]) => renderDetailItem(key, value))}
-            </dl>
-          </CardContent>
-      </Card>
     </div>
   );
 }
     
+
