@@ -27,11 +27,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase/config";
+import { auth, db, app as firebaseApp } from "@/lib/firebase/config";
 import { User, onAuthStateChanged } from "firebase/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, parseISO } from 'date-fns';
 import Image from "next/image";
+import { cn } from "@/lib/utils";
+
 
 const CUSTOM_FORM_ID = "mainGlobalCustomForm";
 
@@ -49,7 +51,37 @@ interface CustomFormSettings {
   fields: CustomFieldSetting[];
 }
 
-// Helper function to format values for display - moved outside component for clarity
+// Function to dynamically create Zod schema
+const createDynamicSchema = (fields: CustomFieldSetting[]) => {
+  const shape: { [key: string]: z.ZodTypeAny } = {};
+  fields.forEach(field => {
+    let fieldSchema: z.ZodTypeAny;
+    switch (field.type) {
+      case "textarea":
+        fieldSchema = z.string();
+        if (field.isRequired) {
+          fieldSchema = fieldSchema.min(1, { message: `${field.label} is required.` });
+        } else {
+          fieldSchema = fieldSchema.optional().or(z.literal("")); // Allow empty string for optional fields
+        }
+        break;
+      case "text":
+      default:
+        fieldSchema = z.string();
+        if (field.isRequired) {
+          fieldSchema = fieldSchema.min(1, { message: `${field.label} is required.` });
+        } else {
+          fieldSchema = fieldSchema.optional().or(z.literal("")); // Allow empty string for optional fields
+        }
+        break;
+    }
+    shape[field.key] = fieldSchema;
+  });
+  return z.object(shape);
+};
+
+
+// Helper function to format values for display
 const formatDisplayValue = (key: string, value: any): string | React.ReactNode => {
   if (value === null || typeof value === 'undefined') return <span className="italic text-muted-foreground">Not provided</span>;
   if (typeof value === 'boolean') return value ? "Yes" : "No";
@@ -65,27 +97,26 @@ const formatDisplayValue = (key: string, value: any): string | React.ReactNode =
   }
   if (value instanceof Date && !isNaN(value.getTime())) return format(value, "PP pp");
   if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === 'object' && !(value instanceof Date)) return "[Object Data - See Below]";
+  if (typeof value === 'object' && !(value instanceof Date) && !Array.isArray(value)) return "[Object Data - See Below]";
   return String(value);
 };
 
-// Recursive function to render form details - moved outside component for clarity
+// Recursive function to render form details
 const renderDetailItem = (label: string, value: any, indentLevel = 0): React.ReactNode => {
   const prettyLabel = label
     .replace(/([A-Z])/g, ' $1')
     .replace(/_/g, ' ')
     .replace(/^./, (str) => str.toUpperCase());
 
-  // If the value is an object (like formData or details), and it's not a Date or Array
   if ((label === 'formData' || label === 'details') && typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)) {
     return (
-      <div key={label} className={`ml-${indentLevel * 0} mb-3 printable-data-item`}> {/* No indent for the section title itself */}
+      <div key={label} className={cn(`mb-3 printable-data-item`, indentLevel > 0 && `ml-${indentLevel * 4}`)}>
         <dt className="font-semibold text-base text-foreground border-b pb-1 mb-2 printable-data-label">{prettyLabel}</dt>
         <dd className={`ml-0 mt-1 space-y-2`}>
           {Object.keys(value).length > 0 ? (
-            <dl className="space-y-1 ml-4 pl-4 border-l border-muted nested-dl-print"> {/* Indent content of nested object */}
+            <dl className="space-y-1 ml-4 pl-4 border-l border-muted nested-dl-print">
               {Object.entries(value).map(([subKey, subValue]) =>
-                renderDetailItem(subKey, subValue, indentLevel + 1) // Increment indent for sub-items
+                renderDetailItem(subKey, subValue, indentLevel + 1) 
               )}
             </dl>
           ) : (
@@ -96,9 +127,8 @@ const renderDetailItem = (label: string, value: any, indentLevel = 0): React.Rea
     );
   }
 
-  // For simple key-value pairs
   return (
-    <div key={label} className={`ml-${indentLevel * 4} printable-data-item`}>
+    <div key={label} className={cn(`printable-data-item`, indentLevel > 0 ? `ml-${indentLevel * 4}` : '')}>
       <dt className="font-semibold text-sm text-foreground printable-data-label">{prettyLabel}:</dt>
       <dd className="ml-4 text-sm text-muted-foreground break-words">{formatDisplayValue(label, value)}</dd>
     </div>
@@ -113,7 +143,7 @@ export default function UserCustomFormPage() {
   const [settingsError, setSettingsError] = React.useState<string | null>(null);
   const [submittedData, setSubmittedData] = React.useState<Record<string, any> | null>(null);
   const [isLoadingPage, setIsLoadingPage] = React.useState(true);
-  const [hasSubmittedThisSession, setHasSubmittedThisSession] = React.useState(false);
+  const [hasSubmitted, setHasSubmitted] = React.useState(false);
 
 
   const form = useForm<any>({
@@ -140,7 +170,6 @@ export default function UserCustomFormPage() {
           return acc;
         }, {});
         form.reset(defaultVals, {
-          // @ts-ignore
           resolver: zodResolver(dynamicSchema),
         });
       } else {
@@ -164,7 +193,7 @@ export default function UserCustomFormPage() {
         fetchFormDefinition();
       } else {
         setIsLoadingPage(false);
-        setIsLoadingSettings(false);
+        setIsLoadingSettings(false); // Also stop settings loading if no user
         setSettingsError("You must be logged in to view this form.");
       }
     });
@@ -177,7 +206,7 @@ export default function UserCustomFormPage() {
   React.useEffect(() => {
     if (!isLoadingSettings && currentUser) {
       setIsLoadingPage(false);
-    } else if (!currentUser && !isLoadingSettings) {
+    } else if (!currentUser && !isLoadingSettings) { // If no user and settings not loading, page is ready
       setIsLoadingPage(false);
     }
   }, [isLoadingSettings, currentUser]);
@@ -215,7 +244,7 @@ export default function UserCustomFormPage() {
       const result = await response.json();
       console.log("UserCustomFormPage: Custom form submission successful:", result);
       setSubmittedData(data); // Store submitted data for printing
-      setHasSubmittedThisSession(true); // Mark as submitted in this session
+      setHasSubmitted(true); // Mark as submitted in this session
       toast({
         title: "Form Submitted",
         description: `${formSettings?.title || 'Your form'} has been submitted successfully.`,
@@ -249,7 +278,7 @@ export default function UserCustomFormPage() {
 
   const handleSubmitAnother = () => {
     setSubmittedData(null);
-    setHasSubmittedThisSession(false);
+    setHasSubmitted(false); // Allow new submission
     if (formSettings) { 
          const defaultVals = formSettings.fields.reduce((acc, field) => {
             acc[field.key] = "";
@@ -362,14 +391,23 @@ export default function UserCustomFormPage() {
   if (submittedData) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-2 no-print">
-          <Button variant="outline" size="icon" asChild>
-            <Link href="/user/dashboard/forms">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight">{formSettings.title} - Submission</h1>
+        <div className="flex items-center justify-between no-print">
+          <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" asChild>
+                <Link href="/user/dashboard/forms">
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </Button>
+              <h1 className="text-3xl font-bold tracking-tight">{formSettings.title} - Submission</h1>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handlePrint}>
+              <Printer className="mr-2 h-4 w-4" /> Print Submission
+            </Button>
+            <Button variant="outline" onClick={handleSubmitAnother}>Submit Another Response</Button>
+          </div>
         </div>
+        
         <Card className="shadow-lg max-w-2xl mx-auto no-print">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><CheckCircle className="h-6 w-6 text-green-500" />Submission Successful!</CardTitle>
@@ -377,21 +415,14 @@ export default function UserCustomFormPage() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-4">
-              Your response for "{formSettings.title}" has been recorded. You can print a copy for your records.
+              Your response for "{formSettings.title}" has been recorded. You can print a copy for your records or submit another response.
             </p>
-            <div className="space-x-2">
-              <Button onClick={handlePrint}>
-                <Printer className="mr-2 h-4 w-4" /> Print Submission
-              </Button>
-              <Button variant="outline" onClick={handleSubmitAnother}>Submit Another Response</Button>
-              <Button variant="ghost" asChild>
+            <Button variant="ghost" asChild>
                  <Link href="/user/dashboard">Back to Dashboard</Link>
-              </Button>
-            </div>
+            </Button>
           </CardContent>
         </Card>
 
-        {/* Printable Area */}
         <div id="printable-area" className="printable-area print-only">
           <div className="printable-header">
              <Image src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" width={60} height={60} className="printable-logo" />
@@ -426,8 +457,8 @@ export default function UserCustomFormPage() {
   }
   
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between no-print">
+    <div className="space-y-6 no-print">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
             <Link href="/user/dashboard/forms">
@@ -438,7 +469,7 @@ export default function UserCustomFormPage() {
         </div>
       </div>
 
-      <Card className="shadow-lg max-w-2xl mx-auto no-print">
+      <Card className="shadow-lg max-w-2xl mx-auto">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardHeader>
@@ -467,7 +498,7 @@ export default function UserCustomFormPage() {
                           />
                         ) : (
                           <Input
-                            type={fieldSetting.type === "text" ? "text" : "text"} 
+                            type={fieldSetting.type === "text" ? "text" : "text"} // Could be extended for other HTML input types
                             placeholder={`Enter ${fieldSetting.label.toLowerCase()}`}
                             {...field}
                             value={field.value || ''} 
@@ -498,4 +529,3 @@ export default function UserCustomFormPage() {
   );
 }
     
-
