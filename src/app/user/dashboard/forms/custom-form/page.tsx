@@ -30,7 +30,7 @@ import { toast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase/config";
 import { User, onAuthStateChanged } from "firebase/auth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import Image from "next/image";
 
 const CUSTOM_FORM_ID = "mainGlobalCustomForm";
@@ -49,33 +49,60 @@ interface CustomFormSettings {
   fields: CustomFieldSetting[];
 }
 
-const createDynamicSchema = (fields: CustomFieldSetting[]) => {
-  const schemaObject: Record<string, z.ZodTypeAny> = {};
-  fields.forEach(field => {
-    let fieldSchema: z.ZodTypeAny;
-    switch (field.type) {
-      case "textarea":
-        fieldSchema = z.string();
-        if (field.isRequired) {
-          fieldSchema = fieldSchema.min(1, `${field.label} is required.`);
-        } else {
-          // Allow empty string for optional fields
-          fieldSchema = fieldSchema.optional().or(z.literal(""));
-        }
-        break;
-      case "text":
-      default:
-        fieldSchema = z.string();
-        if (field.isRequired) {
-          fieldSchema = fieldSchema.min(1, `${field.label} is required.`);
-        } else {
-          fieldSchema = fieldSchema.optional().or(z.literal(""));
-        }
-        break;
-    }
-    schemaObject[field.key] = fieldSchema;
-  });
-  return z.object(schemaObject);
+// Helper function to format values for display - moved outside component for clarity
+const formatDisplayValue = (key: string, value: any): string | React.ReactNode => {
+  if (value === null || typeof value === 'undefined') return <span className="italic text-muted-foreground">Not provided</span>;
+  if (typeof value === 'boolean') return value ? "Yes" : "No";
+  if ((key.toLowerCase().includes('date') || key.toLowerCase().includes('at') || key.toLowerCase().endsWith('dob')) && typeof value === 'string') {
+    try {
+      const dateFromISO = parseISO(value);
+      if (!isNaN(dateFromISO.getTime())) return format(dateFromISO, "PP pp");
+    } catch (e) { /* Not an ISO string, fall through */ }
+    try {
+      const dateFromGeneric = new Date(value);
+      if (!isNaN(dateFromGeneric.getTime())) return format(dateFromGeneric, "PP pp");
+    } catch (e) { /* Still not a valid date string, fall through */ }
+  }
+  if (value instanceof Date && !isNaN(value.getTime())) return format(value, "PP pp");
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === 'object' && !(value instanceof Date)) return "[Object Data - See Below]";
+  return String(value);
+};
+
+// Recursive function to render form details - moved outside component for clarity
+const renderDetailItem = (label: string, value: any, indentLevel = 0): React.ReactNode => {
+  const prettyLabel = label
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .replace(/^./, (str) => str.toUpperCase());
+
+  // If the value is an object (like formData or details), and it's not a Date or Array
+  if ((label === 'formData' || label === 'details') && typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)) {
+    return (
+      <div key={label} className={`ml-${indentLevel * 0} mb-3 printable-data-item`}> {/* No indent for the section title itself */}
+        <dt className="font-semibold text-base text-foreground border-b pb-1 mb-2 printable-data-label">{prettyLabel}</dt>
+        <dd className={`ml-0 mt-1 space-y-2`}>
+          {Object.keys(value).length > 0 ? (
+            <dl className="space-y-1 ml-4 pl-4 border-l border-muted nested-dl-print"> {/* Indent content of nested object */}
+              {Object.entries(value).map(([subKey, subValue]) =>
+                renderDetailItem(subKey, subValue, indentLevel + 1) // Increment indent for sub-items
+              )}
+            </dl>
+          ) : (
+            <span className="italic ml-4">No additional details provided.</span>
+          )}
+        </dd>
+      </div>
+    );
+  }
+
+  // For simple key-value pairs
+  return (
+    <div key={label} className={`ml-${indentLevel * 4} printable-data-item`}>
+      <dt className="font-semibold text-sm text-foreground printable-data-label">{prettyLabel}:</dt>
+      <dd className="ml-4 text-sm text-muted-foreground break-words">{formatDisplayValue(label, value)}</dd>
+    </div>
+  );
 };
 
 export default function UserCustomFormPage() {
@@ -85,10 +112,11 @@ export default function UserCustomFormPage() {
   const [isLoadingSettings, setIsLoadingSettings] = React.useState(true);
   const [settingsError, setSettingsError] = React.useState<string | null>(null);
   const [submittedData, setSubmittedData] = React.useState<Record<string, any> | null>(null);
-  const [isLoadingPage, setIsLoadingPage] = React.useState(true); // General loading state
+  const [isLoadingPage, setIsLoadingPage] = React.useState(true);
+  const [hasSubmittedThisSession, setHasSubmittedThisSession] = React.useState(false);
+
 
   const form = useForm<any>({
-    // Resolver will be set dynamically
     defaultValues: {},
   });
 
@@ -133,10 +161,10 @@ export default function UserCustomFormPage() {
       console.log("UserCustomFormPage: Auth state changed. User:", user ? user.uid : 'null');
       setCurrentUser(user);
       if (user) {
-        fetchFormDefinition(); // Fetch settings after user is confirmed
+        fetchFormDefinition();
       } else {
-        setIsLoadingPage(false); // No user, stop general loading
-        setIsLoadingSettings(false); // Also stop settings loading
+        setIsLoadingPage(false);
+        setIsLoadingSettings(false);
         setSettingsError("You must be logged in to view this form.");
       }
     });
@@ -149,7 +177,7 @@ export default function UserCustomFormPage() {
   React.useEffect(() => {
     if (!isLoadingSettings && currentUser) {
       setIsLoadingPage(false);
-    } else if (!currentUser && !isLoadingSettings) { // Handle case where user logs out or initial load has no user
+    } else if (!currentUser && !isLoadingSettings) {
       setIsLoadingPage(false);
     }
   }, [isLoadingSettings, currentUser]);
@@ -187,11 +215,11 @@ export default function UserCustomFormPage() {
       const result = await response.json();
       console.log("UserCustomFormPage: Custom form submission successful:", result);
       setSubmittedData(data); // Store submitted data for printing
+      setHasSubmittedThisSession(true); // Mark as submitted in this session
       toast({
         title: "Form Submitted",
         description: `${formSettings?.title || 'Your form'} has been submitted successfully.`,
       });
-      // Do not reset form here, we show the submittedData view
     } catch (error: any) {
       console.error("UserCustomFormPage: Custom form submission error:", error);
       toast({
@@ -205,11 +233,23 @@ export default function UserCustomFormPage() {
   }
 
   const handlePrint = () => {
-    window.print();
+    console.log("UserCustomFormPage: Print button clicked...");
+    if (typeof window !== 'undefined' && window.print) {
+      window.print();
+    } else {
+      console.warn("UserCustomFormPage: window.print is not available. This might be due to a sandboxed environment.");
+      toast({
+        title: "Print Not Available",
+        description: "Printing is not available in this environment. Please try opening the page in a new tab or standard browser window if you are in an embedded view.",
+        variant: "default",
+        duration: 7000,
+      });
+    }
   };
 
   const handleSubmitAnother = () => {
     setSubmittedData(null);
+    setHasSubmittedThisSession(false);
     if (formSettings) { 
          const defaultVals = formSettings.fields.reduce((acc, field) => {
             acc[field.key] = "";
@@ -352,7 +392,7 @@ export default function UserCustomFormPage() {
         </Card>
 
         {/* Printable Area */}
-        <div id="printable-area" className="printable-area hidden">
+        <div id="printable-area" className="printable-area print-only">
           <div className="printable-header">
              <Image src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" width={60} height={60} className="printable-logo" />
             <div className="printable-header-text">
@@ -361,25 +401,18 @@ export default function UserCustomFormPage() {
             </div>
           </div>
           <h3 className="text-xl font-semibold my-4 text-center">Form Submission Details</h3>
-          <dl className="space-y-3">
-            {formSettings.fields.map((fieldSetting) => (
-              <div key={fieldSetting.key} className="printable-data-item">
-                <dt className="font-semibold printable-data-label">{fieldSetting.label}:</dt>
-                <dd className="ml-4 break-words">
-                  {typeof submittedData[fieldSetting.key] === 'boolean'
-                    ? submittedData[fieldSetting.key] ? 'Yes' : 'No'
-                    : submittedData[fieldSetting.key]?.toString() || <span className="text-muted-foreground italic">Not provided</span>}
-                </dd>
-              </div>
-            ))}
+          <dl className="space-y-3 printable-data-item">
+            {formSettings.fields.map((fieldSetting) => 
+                renderDetailItem(fieldSetting.label, submittedData[fieldSetting.key])
+            )}
              <div className="printable-data-item">
-                <dt className="font-semibold printable-data-label">Submitted On:</dt>
-                <dd className="ml-4">{format(new Date(), "PP pp")}</dd> 
+                <dt className="font-semibold text-sm text-foreground printable-data-label">Submitted On:</dt>
+                <dd className="ml-4 text-sm text-muted-foreground break-words">{format(new Date(), "PP pp")}</dd> 
              </div>
              {currentUser?.email && (
                 <div className="printable-data-item">
-                    <dt className="font-semibold printable-data-label">Submitted By:</dt>
-                    <dd className="ml-4">{currentUser.email}</dd>
+                    <dt className="font-semibold text-sm text-foreground printable-data-label">Submitted By:</dt>
+                    <dd className="ml-4 text-sm text-muted-foreground break-words">{currentUser.email}</dd>
                 </div>
              )}
           </dl>
@@ -466,4 +499,3 @@ export default function UserCustomFormPage() {
 }
     
 
-    
