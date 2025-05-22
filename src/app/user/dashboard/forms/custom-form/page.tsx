@@ -6,7 +6,7 @@ import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { ArrowLeft, Send, Loader2, Info, ShieldAlert, FileText, MessageSquareText, Printer, CheckCircle } from "lucide-react"; // Added CheckCircle
+import { ArrowLeft, Send, Loader2, Info, ShieldAlert, FileText, MessageSquareText, Printer, CheckCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,11 +27,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { auth, db } from "@/lib/firebase/config";
-import { User } from "firebase/auth";
+import { auth } from "@/lib/firebase/config";
+import { User, onAuthStateChanged } from "firebase/auth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { format } from 'date-fns';
+import Image from "next/image";
 
 const CUSTOM_FORM_ID = "mainGlobalCustomForm";
 
@@ -59,6 +59,7 @@ const createDynamicSchema = (fields: CustomFieldSetting[]) => {
         if (field.isRequired) {
           fieldSchema = fieldSchema.min(1, `${field.label} is required.`);
         } else {
+          // Allow empty string for optional fields
           fieldSchema = fieldSchema.optional().or(z.literal(""));
         }
         break;
@@ -83,103 +84,92 @@ export default function UserCustomFormPage() {
   const [formSettings, setFormSettings] = React.useState<CustomFormSettings | null>(null);
   const [isLoadingSettings, setIsLoadingSettings] = React.useState(true);
   const [settingsError, setSettingsError] = React.useState<string | null>(null);
-  
-  // isLoadingStatus is used for the initial check if a form has already been submitted
-  const [isLoadingStatus, setIsLoadingStatus] = React.useState(true); 
-  // hasSubmitted is used to display the "already submitted" message
-  const [hasSubmitted, setHasSubmitted] = React.useState(false); 
-  // submittedData stores the data of the current successful submission for printing
   const [submittedData, setSubmittedData] = React.useState<Record<string, any> | null>(null);
+  const [isLoadingPage, setIsLoadingPage] = React.useState(true); // General loading state
 
-  const form = useForm<any>({ 
-    resolver: formSettings ? zodResolver(createDynamicSchema(formSettings.fields)) : undefined,
+  const form = useForm<any>({
+    // Resolver will be set dynamically
     defaultValues: {},
   });
 
-  React.useEffect(() => {
-    if (formSettings) {
-      const dynamicSchema = createDynamicSchema(formSettings.fields);
-      const defaultVals = formSettings.fields.reduce((acc, field) => {
-        acc[field.key] = "";
-        return acc;
-      }, {} as Record<string, string>);
-      
-      form.reset(defaultVals, {
-        // @ts-ignore
-        resolver: zodResolver(dynamicSchema), 
-      });
+  const fetchFormDefinition = React.useCallback(async () => {
+    setIsLoadingSettings(true);
+    setSettingsError(null);
+    console.log("UserCustomFormPage: Fetching form definition for", CUSTOM_FORM_ID);
+    try {
+      const response = await fetch(`/api/admin/custom-form-settings?formId=${CUSTOM_FORM_ID}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || "Failed to fetch custom form settings.");
+      }
+      const data = await response.json();
+      if (data.settings) {
+        console.log("UserCustomFormPage: Form settings received:", data.settings);
+        setFormSettings(data.settings);
+        const dynamicSchema = createDynamicSchema(data.settings.fields || []);
+        const defaultVals = (data.settings.fields || []).reduce((acc: Record<string, string>, field: CustomFieldSetting) => {
+          acc[field.key] = "";
+          return acc;
+        }, {});
+        form.reset(defaultVals, {
+          // @ts-ignore
+          resolver: zodResolver(dynamicSchema),
+        });
+      } else {
+        throw new Error("Form definition not found or is invalid.");
+      }
+    } catch (error: any) {
+      console.error("UserCustomFormPage: Error fetching form settings:", error);
+      setSettingsError(error.message);
+      toast({ title: "Error Loading Form Configuration", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoadingSettings(false);
     }
-  }, [formSettings, form]);
+  }, [form]);
 
   React.useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    console.log("UserCustomFormPage: Auth effect running.");
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("UserCustomFormPage: Auth state changed. User:", user ? user.uid : 'null');
       setCurrentUser(user);
-      if (!user) { // If user logs out or is not logged in initially
-        setIsLoadingSettings(false); // Stop settings loading if no user
-        setIsLoadingStatus(false); // Stop status loading if no user
-        setHasSubmitted(false); // Reset submission status
-        setSubmittedData(null); // Reset submitted data
+      if (user) {
+        fetchFormDefinition(); // Fetch settings after user is confirmed
+      } else {
+        setIsLoadingPage(false); // No user, stop general loading
+        setIsLoadingSettings(false); // Also stop settings loading
+        setSettingsError("You must be logged in to view this form.");
       }
     });
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      console.log("UserCustomFormPage: Cleaning up auth subscription.");
+      unsubscribe();
+    };
+  }, [fetchFormDefinition]);
 
   React.useEffect(() => {
-    const fetchInitialData = async () => {
-      if (!currentUser) {
-        setIsLoadingSettings(false);
-        setIsLoadingStatus(false);
-        return;
-      }
+    if (!isLoadingSettings && currentUser) {
+      setIsLoadingPage(false);
+    } else if (!currentUser && !isLoadingSettings) { // Handle case where user logs out or initial load has no user
+      setIsLoadingPage(false);
+    }
+  }, [isLoadingSettings, currentUser]);
 
-      setIsLoadingSettings(true);
-      setIsLoadingStatus(true); // Start loading status
-      setSettingsError(null);
-      setHasSubmitted(false); // Reset for each user/load
-      setSubmittedData(null); // Clear any previous print data
-
-      try {
-        // Fetch form settings
-        const settingsResponse = await fetch(`/api/admin/custom-form-settings?formId=${CUSTOM_FORM_ID}`);
-        if (!settingsResponse.ok) {
-          const errorData = await settingsResponse.json();
-          throw new Error(errorData.error?.message || "Failed to fetch custom form settings.");
-        }
-        const settingsData = await settingsResponse.json();
-        setFormSettings(settingsData.settings);
-        
-        // If settings fetched and form is active, check for previous submission
-        // This check is no longer needed since we allow multiple submissions.
-        // Keeping the structure for hasSubmitted in case it's reintroduced later.
-        // For now, we assume no previous submission blocks a new one.
-        setHasSubmitted(false); 
-        setIsLoadingStatus(false);
-
-      } catch (error: any) {
-        setSettingsError(error.message);
-        toast({ title: "Error Loading Form Configuration", description: error.message, variant: "destructive" });
-        setIsLoadingSettings(false);
-        setIsLoadingStatus(false);
-      }
-    };
-
-    fetchInitialData();
-  }, [currentUser]); // Re-fetch if user changes
 
   async function onSubmit(data: Record<string, any>) {
+    if (!currentUser) {
+      toast({ title: "Authentication Error", description: "You must be logged in to submit this form.", variant: "destructive" });
+      return;
+    }
     if (!formSettings?.isActive) {
       toast({ title: "Form Closed", description: "This form is currently not accepting submissions.", variant: "destructive" });
       return;
     }
+
     setIsSubmitting(true);
-    if (!currentUser) {
-      toast({ title: "Authentication Error", description: "You must be logged in to submit this form.", variant: "destructive" });
-      setIsSubmitting(false);
-      return;
-    }
+    console.log("UserCustomFormPage: Submitting custom form data:", data);
 
     try {
-      const idToken = await currentUser.getIdToken();
+      const idToken = await currentUser.getIdToken(true);
       const response = await fetch("/api/forms/custom-submission", {
         method: "POST",
         headers: {
@@ -190,20 +180,20 @@ export default function UserCustomFormPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error?.message || "Failed to submit custom form.");
       }
       
-      const result = await response.json(); // Get result for logging, if needed
-      console.log("Custom form submission successful:", result);
+      const result = await response.json();
+      console.log("UserCustomFormPage: Custom form submission successful:", result);
       setSubmittedData(data); // Store submitted data for printing
-      setHasSubmitted(true); // Mark as submitted for this session's view
       toast({
         title: "Form Submitted",
         description: `${formSettings?.title || 'Your form'} has been submitted successfully.`,
       });
-      // We don't reset the form here immediately, because we want to show the 'submittedData' view
+      // Do not reset form here, we show the submittedData view
     } catch (error: any) {
+      console.error("UserCustomFormPage: Custom form submission error:", error);
       toast({
         title: "Submission Failed",
         description: error.message || "An unexpected error occurred.",
@@ -219,8 +209,7 @@ export default function UserCustomFormPage() {
   };
 
   const handleSubmitAnother = () => {
-    setSubmittedData(null); // Clear current submitted data view
-    setHasSubmitted(false); // Allow new submission
+    setSubmittedData(null);
     if (formSettings) { 
          const defaultVals = formSettings.fields.reduce((acc, field) => {
             acc[field.key] = "";
@@ -230,11 +219,11 @@ export default function UserCustomFormPage() {
     }
   };
 
-  if (isLoadingSettings || (isLoadingStatus && !submittedData)) {
+  if (isLoadingPage) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
-          <Skeleton className="h-9 w-9" />
+          <Skeleton className="h-9 w-9 rounded-md" />
           <Skeleton className="h-8 w-40" />
         </div>
         <Card className="shadow-lg max-w-2xl mx-auto">
@@ -243,7 +232,9 @@ export default function UserCustomFormPage() {
             <Skeleton className="h-4 w-3/4" />
           </CardHeader>
           <CardContent className="space-y-4">
-            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
           </CardContent>
           <CardFooter className="border-t pt-6 flex justify-end">
             <Skeleton className="h-10 w-28" />
@@ -271,14 +262,17 @@ export default function UserCustomFormPage() {
           </CardHeader>
           <CardContent>
             <p className="text-destructive">{settingsError}</p>
-            <p className="text-muted-foreground mt-2">Please try again later or contact support.</p>
+            <p className="text-muted-foreground mt-2">Please try again later or contact support. Ensure the form (ID: {CUSTOM_FORM_ID}) is configured by an admin.</p>
+             <Button onClick={fetchFormDefinition} variant="outline" className="mt-4">
+                <RefreshCw className="mr-2 h-4 w-4" /> Try Reloading Form
+            </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
   
-  if (!formSettings || !formSettings.fields) {
+  if (!formSettings || !formSettings.fields || formSettings.fields.length === 0) {
      return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -294,14 +288,14 @@ export default function UserCustomFormPage() {
             <CardTitle className="flex items-center gap-2"><Info className="h-6 w-6 text-primary"/>Form Not Configured</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">This custom form has not been configured by the administrator yet.</p>
+            <p className="text-muted-foreground">This custom form has not been configured by the administrator yet or has no fields defined.</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (!formSettings.isActive && !submittedData) { // Only show "Form Closed" if not viewing a just-submitted form
+  if (!formSettings.isActive && !submittedData) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -310,7 +304,7 @@ export default function UserCustomFormPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">{formSettings.title || "Custom Form"}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{formSettings.title}</h1>
         </div>
         <Card className="shadow-lg max-w-2xl mx-auto">
           <CardHeader>
@@ -357,9 +351,10 @@ export default function UserCustomFormPage() {
           </CardContent>
         </Card>
 
+        {/* Printable Area */}
         <div id="printable-area" className="printable-area hidden">
           <div className="printable-header">
-            <img src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" className="printable-logo" />
+             <Image src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" width={60} height={60} className="printable-logo" />
             <div className="printable-header-text">
               <h2>Amity University Madhya Pradesh</h2>
               <p>{formSettings.title}</p>
@@ -469,4 +464,6 @@ export default function UserCustomFormPage() {
     </div>
   );
 }
+    
+
     
