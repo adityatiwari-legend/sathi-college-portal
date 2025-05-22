@@ -32,6 +32,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface FormDetail {
   id: string;
@@ -39,6 +40,7 @@ interface FormDetail {
   [key: string]: any; // For dynamic fields
 }
 
+// Order for displaying top-level fields. Others will be appended.
 const fieldOrder = [
   "formId", "userId", "userEmail", "submittedAt", "registeredAt", "status",
   // Admission Form Specific
@@ -46,63 +48,78 @@ const fieldOrder = [
   "desiredProgram", "previousSchool", "previousGrade", "statement",
   // Course Registration Specific
   "studentName", "studentId", "term", "selectedCourses",
-  // Custom Form Data
-  "formData"
+  // Custom Form Data container
+  "formData",
+  // General details container
+  "details" 
 ];
 
-// Helper to format values for display
+// Helper function to format values for display
 const formatDisplayValue = (key: string, value: any): string | React.ReactNode => {
   if (value === null || typeof value === 'undefined') return <span className="italic text-muted-foreground">Not provided</span>;
   if (typeof value === 'boolean') return value ? "Yes" : "No";
-  if (key.toLowerCase().includes('date') || key.toLowerCase().includes('at') || key.toLowerCase().endsWith('dob')) {
+  // Check if the key suggests it's a date-like field and value is a string that might be a date
+  if ((key.toLowerCase().includes('date') || key.toLowerCase().includes('at') || key.toLowerCase().endsWith('dob')) && typeof value === 'string') {
     try {
-      // Check if value is already an ISO string or a Date object
-      const date = (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) 
-                   ? parseISO(value) 
-                   : new Date(value);
-      if (!isNaN(date.getTime())) {
-        return format(date, "PP pp"); // e.g., Jul 22, 2024 03:30 PM
+      // Attempt to parse as ISO string first (common from server timestamps)
+      const dateFromISO = parseISO(value);
+      if (!isNaN(dateFromISO.getTime())) {
+        return format(dateFromISO, "PP pp"); // e.g., Jul 22, 2024 03:30 PM
       }
-    } catch (e) { /* Fall through to default string conversion */ }
+    } catch (e) { /* Not an ISO string, fall through */ }
+    try {
+      // Attempt to parse with new Date() for other common date string formats
+      const dateFromGeneric = new Date(value);
+      if (!isNaN(dateFromGeneric.getTime())) {
+        return format(dateFromGeneric, "PP pp");
+      }
+    } catch (e) { /* Still not a valid date string, fall through */ }
+  }
+  // If it's already a Date object (e.g. from react-day-picker)
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return format(value, "PP pp");
   }
   if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === 'object') return JSON.stringify(value, null, 2); // Fallback for other objects
+  // Avoid stringifying general objects here as they will be handled by recursive renderDetailItem
+  if (typeof value === 'object' && !(value instanceof Date) && !Array.isArray(value)) {
+    return "[Object Data - See Below]"; // Placeholder, actual rendering is handled by recursion
+  }
   return String(value);
 };
 
-const renderDetailItem = (label: string, value: any, indentLevel = 0) => {
+// Recursive function to render form details
+const renderDetailItem = (label: string, value: any): React.ReactNode => {
   const prettyLabel = label
     .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+    .replace(/_/g, ' ')        // Replace underscores with spaces
     .replace(/^./, (str) => str.toUpperCase()); // Capitalize first letter
 
-  if (typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date) && label !== 'details' && label !== 'formData') {
+  // If the value is an object (like formData or details), and it's not a Date or Array
+  if ((label === 'formData' || label === 'details') && typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)) {
     return (
-      <div key={label} className={`ml-${indentLevel * 4} mb-2`}>
-        <dt className="font-semibold text-sm text-foreground">{prettyLabel}:</dt>
-        <dd className={`ml-${(indentLevel + 1) * 4} mt-1 space-y-1`}>
-          {Object.entries(value).map(([subKey, subValue]) => renderDetailItem(subKey, subValue, indentLevel + 1))}
+      <React.Fragment key={label}>
+        <dt className="font-semibold text-sm text-foreground printable-data-label">{prettyLabel}:</dt>
+        <dd className="ml-4 mt-1 mb-2 space-y-1 text-sm text-muted-foreground break-words">
+          {Object.keys(value).length > 0 ? (
+            <dl className="space-y-1 border-l pl-3 ml-1"> {/* Nested DL for sub-items */}
+              {Object.entries(value).map(([subKey, subValue]) =>
+                renderDetailItem(subKey, subValue) // Recursive call
+              )}
+            </dl>
+          ) : (
+            <span className="italic">No additional details provided.</span>
+          )}
         </dd>
-      </div>
-    );
-  }
-  
-  if (label === 'formData' && typeof value === 'object' && value !== null) {
-    return (
-      <div key={label} className={`ml-${indentLevel * 4} mb-3`}>
-        <dt className="font-semibold text-base text-foreground border-b pb-1 mb-2">{prettyLabel}</dt>
-        <dd className={`ml-${(indentLevel + 1) * 0} mt-1 space-y-2`}> {/* No extra indent for formData children */}
-          {Object.entries(value).map(([subKey, subValue]) => renderDetailItem(subKey, subValue, indentLevel))}
-        </dd>
-      </div>
+      </React.Fragment>
     );
   }
 
-
+  // For simple key-value pairs
   return (
-    <div key={label} className={`ml-${indentLevel * 4} printable-data-item`}>
+    <React.Fragment key={label}>
       <dt className="font-semibold text-sm text-foreground printable-data-label">{prettyLabel}:</dt>
       <dd className="ml-4 text-sm text-muted-foreground break-words">{formatDisplayValue(label, value)}</dd>
-    </div>
+    </React.Fragment>
   );
 };
 
@@ -148,7 +165,7 @@ export default function ViewUserFormDetailsPage() {
             throw new Error(errorData.error?.message || `Failed to fetch form details. Status: ${response.status}`);
           }
           const data = await response.json();
-          setFormDetails({ ...data.form, formType: formType, id: formId }); // Ensure formType and id are part of the state
+          setFormDetails({ ...data.form, formType: formType, id: formId }); 
         } catch (err: any) {
           setError(err.message);
           toast({ title: "Error Loading Form", description: err.message, variant: "destructive" });
@@ -157,10 +174,11 @@ export default function ViewUserFormDetailsPage() {
         }
       };
       fetchFormDetails();
-    } else if (!currentUser && !isLoading) {
+    } else if (!currentUser && !isLoading) { // check isLoading to avoid premature error
         setError("Authentication required to view form details.");
+        setIsLoading(false);
     }
-  }, [currentUser, formId, formType, isLoading]);
+  }, [currentUser, formId, formType, isLoading]); // Added isLoading to dependency array
 
   const handlePrint = () => {
     window.print();
@@ -188,7 +206,7 @@ export default function ViewUserFormDetailsPage() {
         throw new Error(errorData.error?.message || 'Failed to delete form.');
       }
       toast({ title: 'Form Deleted', description: `Your ${formDetails.formType} form has been successfully deleted.` });
-      router.push('/user/dashboard/my-submitted-forms'); // Redirect after delete
+      router.push('/user/dashboard/my-submitted-forms'); 
     } catch (error: any) {
       toast({ title: 'Deletion Failed', description: error.message, variant: 'destructive' });
     } finally {
@@ -264,14 +282,14 @@ export default function ViewUserFormDetailsPage() {
   }
   
   const orderedDetails = Object.entries(formDetails)
-    .filter(([key]) => !['id', 'formType', 'userId', 'userEmail'].includes(key)) // Exclude meta fields from direct display
+    .filter(([key]) => !['id', 'formType', 'userId', 'userEmail'].includes(key)) 
     .sort(([keyA], [keyB]) => {
       const indexA = fieldOrder.indexOf(keyA);
       const indexB = fieldOrder.indexOf(keyB);
-      if (indexA === -1 && indexB === -1) return keyA.localeCompare(keyB); // दोनों नहीं हैं, तो अल्फाबेटिकली
-      if (indexA === -1) return 1; // A नहीं है, तो B को पहले रखो
-      if (indexB === -1) return -1; // B नहीं है, तो A को पहले रखो
-      return indexA - indexB; // दोनों हैं, तो ऑर्डर के हिसाब से
+      if (indexA === -1 && indexB === -1) return keyA.localeCompare(keyB); 
+      if (indexA === -1) return 1; 
+      if (indexB === -1) return -1; 
+      return indexA - indexB; 
     });
 
 
@@ -323,7 +341,7 @@ export default function ViewUserFormDetailsPage() {
 
       <div id="printable-area" className="printable-area">
         <div className="printable-header">
-           <img src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" className="printable-logo" />
+           <Image src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" width={60} height={60} className="printable-logo" />
           <div className="printable-header-text">
             <h2>Amity University Madhya Pradesh</h2>
             <p>{formDetails.formType} Form Submission</p>
@@ -338,7 +356,7 @@ export default function ViewUserFormDetailsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <dl className="space-y-3">
+            <dl className="space-y-3 printable-data-item"> {/* Apply printable-data-item to the main dl */}
               {orderedDetails.map(([key, value]) => renderDetailItem(key, value))}
             </dl>
           </CardContent>
