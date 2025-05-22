@@ -6,7 +6,7 @@ import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { ArrowLeft, Send, Loader2, Info, ShieldAlert, FileText, MessageSquareText, Printer } from "lucide-react";
+import { ArrowLeft, Send, Loader2, Info, ShieldAlert, FileText, MessageSquareText, Printer, CheckCircle } from "lucide-react"; // Added CheckCircle
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -84,7 +84,11 @@ export default function UserCustomFormPage() {
   const [isLoadingSettings, setIsLoadingSettings] = React.useState(true);
   const [settingsError, setSettingsError] = React.useState<string | null>(null);
   
-  const [isLoadingStatus, setIsLoadingStatus] = React.useState(false); // No longer used for submission check, only for initial load
+  // isLoadingStatus is used for the initial check if a form has already been submitted
+  const [isLoadingStatus, setIsLoadingStatus] = React.useState(true); 
+  // hasSubmitted is used to display the "already submitted" message
+  const [hasSubmitted, setHasSubmitted] = React.useState(false); 
+  // submittedData stores the data of the current successful submission for printing
   const [submittedData, setSubmittedData] = React.useState<Record<string, any> | null>(null);
 
   const form = useForm<any>({ 
@@ -110,15 +114,32 @@ export default function UserCustomFormPage() {
   React.useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
+      if (!user) { // If user logs out or is not logged in initially
+        setIsLoadingSettings(false); // Stop settings loading if no user
+        setIsLoadingStatus(false); // Stop status loading if no user
+        setHasSubmitted(false); // Reset submission status
+        setSubmittedData(null); // Reset submitted data
+      }
     });
     return () => unsubscribe();
   }, []);
 
   React.useEffect(() => {
-    const fetchSettings = async () => {
+    const fetchInitialData = async () => {
+      if (!currentUser) {
+        setIsLoadingSettings(false);
+        setIsLoadingStatus(false);
+        return;
+      }
+
       setIsLoadingSettings(true);
+      setIsLoadingStatus(true); // Start loading status
       setSettingsError(null);
+      setHasSubmitted(false); // Reset for each user/load
+      setSubmittedData(null); // Clear any previous print data
+
       try {
+        // Fetch form settings
         const settingsResponse = await fetch(`/api/admin/custom-form-settings?formId=${CUSTOM_FORM_ID}`);
         if (!settingsResponse.ok) {
           const errorData = await settingsResponse.json();
@@ -126,20 +147,24 @@ export default function UserCustomFormPage() {
         }
         const settingsData = await settingsResponse.json();
         setFormSettings(settingsData.settings);
+        
+        // If settings fetched and form is active, check for previous submission
+        // This check is no longer needed since we allow multiple submissions.
+        // Keeping the structure for hasSubmitted in case it's reintroduced later.
+        // For now, we assume no previous submission blocks a new one.
+        setHasSubmitted(false); 
+        setIsLoadingStatus(false);
+
       } catch (error: any) {
         setSettingsError(error.message);
-        toast({ title: "Error Loading Form", description: error.message, variant: "destructive" });
-      } finally {
+        toast({ title: "Error Loading Form Configuration", description: error.message, variant: "destructive" });
         setIsLoadingSettings(false);
+        setIsLoadingStatus(false);
       }
     };
-    if(currentUser === null && auth.currentUser) { 
-        setCurrentUser(auth.currentUser);
-    }
-    if (currentUser !== undefined) { 
-        fetchSettings();
-    }
-  }, [currentUser]); 
+
+    fetchInitialData();
+  }, [currentUser]); // Re-fetch if user changes
 
   async function onSubmit(data: Record<string, any>) {
     if (!formSettings?.isActive) {
@@ -169,12 +194,15 @@ export default function UserCustomFormPage() {
         throw new Error(errorData.error?.message || "Failed to submit custom form.");
       }
       
+      const result = await response.json(); // Get result for logging, if needed
+      console.log("Custom form submission successful:", result);
       setSubmittedData(data); // Store submitted data for printing
+      setHasSubmitted(true); // Mark as submitted for this session's view
       toast({
         title: "Form Submitted",
         description: `${formSettings?.title || 'Your form'} has been submitted successfully.`,
       });
-      // Do not reset the form here, as we want to show the submittedData view
+      // We don't reset the form here immediately, because we want to show the 'submittedData' view
     } catch (error: any) {
       toast({
         title: "Submission Failed",
@@ -191,7 +219,8 @@ export default function UserCustomFormPage() {
   };
 
   const handleSubmitAnother = () => {
-    setSubmittedData(null); // Clear submitted data
+    setSubmittedData(null); // Clear current submitted data view
+    setHasSubmitted(false); // Allow new submission
     if (formSettings) { 
          const defaultVals = formSettings.fields.reduce((acc, field) => {
             acc[field.key] = "";
@@ -201,7 +230,7 @@ export default function UserCustomFormPage() {
     }
   };
 
-  if (isLoadingSettings || isLoadingStatus) {
+  if (isLoadingSettings || (isLoadingStatus && !submittedData)) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -272,7 +301,7 @@ export default function UserCustomFormPage() {
     );
   }
 
-  if (!formSettings.isActive) {
+  if (!formSettings.isActive && !submittedData) { // Only show "Form Closed" if not viewing a just-submitted form
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
