@@ -112,30 +112,39 @@ body {
 }
 
 /* Print-specific styles */
-.print-only {
-  display: none;
-}
-
 @media print {
   body * {
-    visibility: hidden;
-    margin: 0;
-    padding: 0;
-    line-height: 1.4;
+    visibility: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.4 !important;
     box-shadow: none !important;
     border: none !important;
+    background-image: none !important; /* Ensure no background images print */
+    -webkit-print-color-adjust: exact !important; /* Force printing of colors and backgrounds */
+    color-adjust: exact !important;
   }
   .no-print, .no-print * {
     display: none !important;
     visibility: hidden !important;
   }
-  .print-only, .print-only * {
+  /* Ensure printable-area AND ITS CHILDREN are visible */
+  #printable-area, #printable-area * { 
     visibility: visible !important;
-    display: block !important; /* Or table, flex etc. as appropriate */
+    /* display: block !important; Re-evaluate this for flex/grid children if needed */
   }
-  #printable-area.print-only {
+  /* Reset display for common elements within printable area to ensure they flow correctly */
+  #printable-area div, 
+  #printable-area h2, #printable-area h3, 
+  #printable-area p, 
+  #printable-area dl, #printable-area dt, #printable-area dd,
+  #printable-area img, #printable-area span, #printable-area hr {
+    display: block !important; /* Default to block, can be overridden by more specific styles */
+  }
+  
+  #printable-area {
     position: static !important; /* Override any screen positioning */
-    width: 100% !important;
+    width: auto !important; /* Let content determine width, usually full page */
     height: auto !important;
     padding: 20mm !important; /* Standard A4 margins */
     font-size: 11pt !important; /* Standard print font size */
@@ -145,18 +154,18 @@ body {
     border: none !important;
     box-shadow: none !important;
   }
-  #printable-area .shadcn-card { /* Target cards specifically within printable area */
+  #printable-area .shadcn-card { /* Target cards specifically within printable area if they exist */
     border: none !important;
     box-shadow: none !important;
     background-color: #fff !important;
     color: #000 !important;
-    padding: 0 !important; /* Remove card padding if it interferes */
-    margin: 0 0 1rem 0 !important; /* Adjust card margins for print */
+    padding: 0 !important; 
+    margin: 0 0 1rem 0 !important; 
   }
    #printable-area .card-header,
    #printable-area .card-content,
    #printable-area .card-footer {
-    padding: 0 !important; /* Remove padding from card sections */
+    padding: 0 !important; 
    }
 
   #printable-area .printable-data-label, 
@@ -166,24 +175,28 @@ body {
   #printable-area dl dd,
   #printable-area .text-foreground,
   #printable-area .text-primary,
-  #printable-area .card-title, /* Ensure titles are black */
-  #printable-area .card-description /* Ensure descriptions are black */
+  #printable-area .card-title, 
+  #printable-area .card-description,
+  #printable-area h2, #printable-area h3, #printable-area p, #printable-area span
    {
-    color: #000 !important; /* Ensure all relevant text is black */
+    color: #000 !important; 
+    background-color: transparent !important;
   }
    #printable-area .text-muted-foreground {
-    color: #333 !important; /* Slightly lighter gray for less emphasis if needed */
+    color: #333 !important; 
   }
 
   .printable-header {
     display: flex !important;
-    align-items: center;
+    align-items: center !important;
     justify-content: space-between !important;
     margin-bottom: 2rem !important;
     border-bottom: 2px solid #000 !important;
     padding-bottom: 1rem !important;
+    width: 100% !important;
   }
   .printable-logo {
+    display: block !important;
     height: 60px !important;
     width: auto !important;
     margin-right: 20px !important;
@@ -201,12 +214,12 @@ body {
     margin: 0 !important;
   }
   .printable-data-item {
-    margin-bottom: 0.75rem !important; /* Space between items */
-    page-break-inside: avoid !important; /* Try to keep label and value together */
+    margin-bottom: 0.75rem !important; 
+    page-break-inside: avoid !important; 
   }
   .printable-data-label {
     font-weight: bold !important;
-    display: block !important; /* Makes label take full width initially */
+    display: block !important; 
     margin-bottom: 0.25rem !important;
   }
    #printable-area .nested-dl-print {
@@ -214,6 +227,14 @@ body {
     padding-left: 0.75rem !important;
     border-left: 1px solid #ccc !important;
     margin-top: 0.5rem !important;
+    display: block !important; /* Ensure dl is block */
+  }
+  #printable-area .nested-dl-print .printable-data-item { /* Style for items within nested dl */
+     display: block !important; /* Ensure this is block too */
+  }
+  #printable-area .nested-dl-print dt, #printable-area .nested-dl-print dd {
+    display: block !important; /* Ensure dt and dd in nested lists behave as expected */
+    margin-left: 0 !important; /* Reset margin if needed */
   }
   .printable-footer {
     position: fixed !important; 
@@ -225,21 +246,37 @@ body {
     color: #555 !important;
     border-top: 1px solid #ccc !important;
     padding-top: 0.5rem !important;
+    width: auto !important; /* Ensure it doesn't take full page width if not needed */
   }
 
-   /* Ensure textareas and inputs print their content correctly */
   #printable-area textarea, #printable-area input[type="text"] {
-    border: 1px solid #ccc !important; /* Light border to show field extent */
+    border: 1px solid #ccc !important; 
     padding: 0.25rem !important;
-    background-color: #f9f9f9 !important; /* Slightly off-white to distinguish from page */
-    -webkit-print-color-adjust: exact !important; /* Force chrome to print background colors */
-    color-adjust: exact !important;
-    width: 100% !important; /* Ensure they take up available width */
-    display: block !important; /* Ensure they are block elements */
+    background-color: #f9f9f9 !important; 
+    width: 100% !important; 
+    display: block !important; 
     page-break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
-  #printable-area dl dd { /* Style for the definition list description (value) */
-    margin-left: 1rem !important; /* Indent the value */
+  #printable-area dl dd { 
+    margin-left: 1rem !important; 
+    display: block !important;
   }
+  /* Ensure that specific elements like Cards and their children within printable-area are visible */
+  #printable-area .card, #printable-area .card-header, #printable-area .card-content, #printable-area .card-title, #printable-area .card-description, #printable-area dl, #printable-area dt, #printable-area dd, #printable-area p, #printable-area h2, #printable-area h3, #printable-area img, #printable-area span, #printable-area hr {
+    visibility: visible !important;
+    display: block !important; /* Or as appropriate, 'flex' for flex containers etc. */
+  }
+  #printable-area .flex { display: flex !important; } /* Example if you have flex containers */
+  #printable-area .grid { display: grid !important; } /* Example if you have grid containers */
+  #printable-area .items-center { align-items: center !important; }
+  #printable-area .justify-between { justify-content: space-between !important; }
+  #printable-area .gap-2 { gap: 0.5rem !important; } /* Example conversion for gap */
+  #printable-area .text-center { text-align: center !important; }
+  /* ... add other Tailwind utility equivalents if needed for print ... */
+
 }
+    
+
     
