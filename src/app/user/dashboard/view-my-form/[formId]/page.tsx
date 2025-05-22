@@ -12,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from "@/components/ui/card";
 import { auth } from "@/lib/firebase/config";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -42,7 +41,7 @@ interface FormDetail {
 
 // Order for displaying top-level fields. Others will be appended.
 const fieldOrder = [
-  "formId", "userId", "userEmail", "submittedAt", "registeredAt", "status",
+  "formId", "userId", "userEmail", "submittedAt", "registeredAt", "uploadedAt", "status",
   // Admission Form Specific
   "fullName", "dateOfBirth", "email", "phone", "address", "city", "state", "zipCode", "country",
   "desiredProgram", "previousSchool", "previousGrade", "statement",
@@ -58,68 +57,61 @@ const fieldOrder = [
 const formatDisplayValue = (key: string, value: any): string | React.ReactNode => {
   if (value === null || typeof value === 'undefined') return <span className="italic text-muted-foreground">Not provided</span>;
   if (typeof value === 'boolean') return value ? "Yes" : "No";
-  // Check if the key suggests it's a date-like field and value is a string that might be a date
   if ((key.toLowerCase().includes('date') || key.toLowerCase().includes('at') || key.toLowerCase().endsWith('dob')) && typeof value === 'string') {
     try {
-      // Attempt to parse as ISO string first (common from server timestamps)
       const dateFromISO = parseISO(value);
       if (!isNaN(dateFromISO.getTime())) {
-        return format(dateFromISO, "PP pp"); // e.g., Jul 22, 2024 03:30 PM
+        return format(dateFromISO, "PP pp"); 
       }
     } catch (e) { /* Not an ISO string, fall through */ }
     try {
-      // Attempt to parse with new Date() for other common date string formats
       const dateFromGeneric = new Date(value);
       if (!isNaN(dateFromGeneric.getTime())) {
         return format(dateFromGeneric, "PP pp");
       }
     } catch (e) { /* Still not a valid date string, fall through */ }
   }
-  // If it's already a Date object (e.g. from react-day-picker)
   if (value instanceof Date && !isNaN(value.getTime())) {
     return format(value, "PP pp");
   }
   if (Array.isArray(value)) return value.join(", ");
-  // Avoid stringifying general objects here as they will be handled by recursive renderDetailItem
   if (typeof value === 'object' && !(value instanceof Date) && !Array.isArray(value)) {
-    return "[Object Data - See Below]"; // Placeholder, actual rendering is handled by recursion
+    return <span className="italic text-muted-foreground">[Object - details below]</span>;
   }
   return String(value);
 };
 
 // Recursive function to render form details
-const renderDetailItem = (label: string, value: any): React.ReactNode => {
+const renderDetailItem = (label: string, value: any, indentLevel = 0): React.ReactNode => {
   const prettyLabel = label
-    .replace(/([A-Z])/g, ' $1') // Add space before capital letters
-    .replace(/_/g, ' ')        // Replace underscores with spaces
-    .replace(/^./, (str) => str.toUpperCase()); // Capitalize first letter
+    .replace(/([A-Z])/g, ' $1') 
+    .replace(/_/g, ' ')        
+    .replace(/^./, (str) => str.toUpperCase()); 
 
-  // If the value is an object (like formData or details), and it's not a Date or Array
   if ((label === 'formData' || label === 'details') && typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)) {
     return (
-      <React.Fragment key={label}>
-        <dt className="font-semibold text-sm text-foreground printable-data-label">{prettyLabel}:</dt>
-        <dd className="ml-4 mt-1 mb-2 space-y-1 text-sm text-muted-foreground break-words">
+      <div key={label} className={cn(`mb-3 printable-data-item`, indentLevel > 0 && `ml-${indentLevel * 4}`)}>
+        <dt className="font-semibold text-base text-foreground border-b pb-1 mb-2 printable-data-label">{prettyLabel}</dt>
+        <dd className={`ml-0 mt-1 space-y-2`}>
           {Object.keys(value).length > 0 ? (
-            <dl className="space-y-1 border-l pl-3 ml-1"> {/* Nested DL for sub-items */}
+            <dl className="space-y-1 ml-4 pl-4 border-l border-muted nested-dl-print">
               {Object.entries(value).map(([subKey, subValue]) =>
-                renderDetailItem(subKey, subValue) // Recursive call
+                renderDetailItem(subKey, subValue, indentLevel + 1) 
               )}
             </dl>
           ) : (
-            <span className="italic">No additional details provided.</span>
+            <span className="italic ml-4 text-muted-foreground">No additional details provided.</span>
           )}
         </dd>
-      </React.Fragment>
+      </div>
     );
   }
 
-  // For simple key-value pairs
   return (
-    <React.Fragment key={label}>
+    <div key={label} className={cn(`printable-data-item`, indentLevel > 0 ? `ml-${indentLevel * 4}` : 'ml-0')}>
       <dt className="font-semibold text-sm text-foreground printable-data-label">{prettyLabel}:</dt>
       <dd className="ml-4 text-sm text-muted-foreground break-words">{formatDisplayValue(label, value)}</dd>
-    </React.Fragment>
+    </div>
   );
 };
 
@@ -174,14 +166,24 @@ export default function ViewUserFormDetailsPage() {
         }
       };
       fetchFormDetails();
-    } else if (!currentUser && !isLoading) { // check isLoading to avoid premature error
+    } else if (!currentUser && !isLoading) { 
         setError("Authentication required to view form details.");
         setIsLoading(false);
     }
-  }, [currentUser, formId, formType, isLoading]); // Added isLoading to dependency array
+  }, [currentUser, formId, formType, isLoading]);
 
   const handlePrint = () => {
-    window.print();
+    if (typeof window !== 'undefined' && window.print) {
+      console.log("ViewUserFormDetailsPage: Print button clicked...");
+      window.print();
+    } else {
+      console.warn("ViewUserFormDetailsPage: window.print is not available.");
+      toast({
+        title: "Print Not Available",
+        description: "Printing is not available in this environment.",
+        variant: "default"
+      });
+    }
   };
 
   const handleDeleteForm = async () => {
@@ -339,7 +341,7 @@ export default function ViewUserFormDetailsPage() {
         </div>
       </div>
 
-      <div id="printable-area" className="printable-area">
+      <div id="printable-area" className="print-only"> {/* Changed from printable-area to print-only for CSS consistency */}
         <div className="printable-header">
            <Image src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" alt="Amity University Logo" data-ai-hint="university logo" width={60} height={60} className="printable-logo" />
           <div className="printable-header-text">
@@ -348,7 +350,7 @@ export default function ViewUserFormDetailsPage() {
           </div>
         </div>
 
-        <Card className="shadow-lg max-w-3xl mx-auto my-6 shadcn-card">
+        <Card className="shadow-lg max-w-3xl mx-auto my-6 shadcn-card"> {/* Keep shadcn-card for screen, print CSS should override */}
           <CardHeader>
             <CardTitle>{formDetails.formType} - Reference ID: {formDetails.id}</CardTitle>
             <CardDescription>
@@ -356,7 +358,7 @@ export default function ViewUserFormDetailsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <dl className="space-y-3 printable-data-item"> {/* Apply printable-data-item to the main dl */}
+            <dl className="space-y-3">
               {orderedDetails.map(([key, value]) => renderDetailItem(key, value))}
             </dl>
           </CardContent>
@@ -370,3 +372,4 @@ export default function ViewUserFormDetailsPage() {
     </div>
   );
 }
+    
