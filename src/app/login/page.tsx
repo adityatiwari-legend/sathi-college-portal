@@ -5,17 +5,16 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { LogIn, Building2, Loader2, User, Shield } from "lucide-react";
+import { LogIn, Loader2, User, Shield, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, signInWithPopup, User as FirebaseUser, onAuthStateChanged } from "firebase/auth";
-import { auth, googleAuthProvider, firebaseConfig } from "@/lib/firebase/config";
-import Image from "next/image"; // Added this import
+import { auth, googleAuthProvider, firebaseConfig, app as firebaseApp } from "@/lib/firebase/config";
+import Image from "next/image"; 
 
 import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -58,6 +57,7 @@ export default function LoginPage() {
 
   React.useEffect(() => {
     console.log("LoginPage: useEffect for onAuthStateChanged running to check initial auth state.");
+    console.log("LoginPage: Firebase app name:", firebaseApp?.name); 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         console.log("LoginPage: onAuthStateChanged - An active user session exists:", user.uid);
@@ -83,7 +83,7 @@ export default function LoginPage() {
     },
   });
 
-  const handleLoginSuccess = (firebaseUser: FirebaseUser, role: "user" | "admin") => {
+  const handleLoginSuccess = (firebaseUser: FirebaseUser | { uid: string; email: string | null }, role: "user" | "admin") => {
     console.log(`Logged in ${role}: ${firebaseUser.uid}`);
     toast({
       title: "Login Successful",
@@ -93,7 +93,7 @@ export default function LoginPage() {
   };
   
   const handleAuthError = (error: any, context: "Login" | "Google Sign-In") => {
-    console.error(`${context} error details:`, error, "Firebase config:", firebaseConfig);
+    console.error(`${context} error details:`, error, "Firebase config used by client:", firebaseConfig);
     let errorMessage = "An unexpected error occurred. Please try again.";
     if (error.code) {
       switch (error.code) {
@@ -135,8 +135,7 @@ export default function LoginPage() {
     if (data.role === "admin") {
       if (data.email === ADMIN_EMAIL && data.password === ADMIN_PASSWORD) {
         console.log("Admin login successful for:", data.email);
-        // Simulate a FirebaseUser-like object for handleLoginSuccess for admin
-        const mockAdminUser = { uid: "admin_sathi", email: ADMIN_EMAIL } as FirebaseUser;
+        const mockAdminUser = { uid: "admin_sathi", email: ADMIN_EMAIL };
         handleLoginSuccess(mockAdminUser, "admin");
         setIsLoading(false);
         return;
@@ -211,7 +210,14 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 text-primary">
-             <Building2 className="h-8 w-8" />
+             <Image 
+                src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" 
+                alt="Amity University Logo"
+                data-ai-hint="university logo"
+                width={48} // Adjusted size for this context
+                height={48}
+                priority
+             />
           </div>
           <CardTitle className="text-3xl font-bold tracking-tight">Sathi Login</CardTitle>
           <CardDescription className="text-muted-foreground">

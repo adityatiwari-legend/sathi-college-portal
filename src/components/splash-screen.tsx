@@ -1,6 +1,7 @@
-"use client"; // If using hooks like useEffect for animations, otherwise can be server. For simplicity, make client if unsure.
 
-import { ShieldCheck } from 'lucide-react'; // Using ShieldCheck for AccessPoint theme
+"use client";
+
+import Image from 'next/image'; // Import next/image
 
 const SplashScreen = () => {
   return (
@@ -14,9 +15,17 @@ const SplashScreen = () => {
           animation: fadeIn 1s ease-in-out;
         }
       `}</style>
-      <ShieldCheck className="h-28 w-28 text-primary mb-6" strokeWidth={1.5} />
+      <Image 
+        src="https://icon2.cleanpng.com/20180627/vy/aayjnkno0.webp" 
+        alt="Amity University Logo"
+        data-ai-hint="university logo"
+        width={112} // Equivalent to h-28 w-28 (assuming 1 unit = 4px)
+        height={112}
+        className="mb-6" 
+        priority // Good for LCP elements
+      />
       <h1 className="text-5xl md:text-6xl font-bold text-primary tracking-tight">
-        Saathi
+        Sathi
       </h1>
       <p className="text-lg md:text-xl text-muted-foreground mt-3">
         Secure. Reliable. Accessible.
